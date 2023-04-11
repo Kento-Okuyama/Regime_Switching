@@ -21,25 +21,21 @@ mEta <- array(NA, c(N,Nt+1,2))
 # Cov[eta_{i,t-1|t-1}^{s'}]
 mP <- array(NA, c(N,Nt+1,2))
 
-# E[eta_{i,t|t}^{s,s'}]
-jEta2 <- array(NA, c(N,Nt,2,2))
-# Cov[eta_{i,t|t}^{s,s'}]
-jP2 <- array(NA, c(N,Nt,2,2))
 
 # v_{i,t}^{s,s'} 
-jV <- array(NA, c(N,Nt))
+jV <- array(NA, c(N,Nt,2,2))
 # F_{i,t}^{s,s'}
-jF <- array(NA, c(N,Nt))
+jF <- array(NA, c(N,Nt,2,2))
 
 # v_{i,t} 
 mV <- array(0, c(N,Nt))
 # F_{i,t}
 mF <- array(0, c(N,Nt))
 
-# f(y_{i,t} | s, s', y_{i,t-1})
-jLik <- array(NA, c(N,Nt,2,2))
-# f(y_{i,t} | y_{i,t-1})
-mLik <- array(0, c(N,Nt))
+# E[eta_{i,t|t}^{s,s'}]
+jEta2 <- array(NA, c(N,Nt,2,2))
+# Cov[eta_{i,t|t}^{s,s'}]
+jP2 <- array(NA, c(N,Nt,2,2))
 
 # marginal probability
 # P(s=2 | y_{i,t})
@@ -53,8 +49,15 @@ tPr <- array(NA, c(N,Nt,2))
 # P(s, s' | y_{i,t-1})
 jPr <- array(NA, c(N,Nt,2,2))
 
+# f(y_{i,t} | s, s', y_{i,t-1})
+jLik <- array(NA, c(N,Nt,2,2))
+# f(y_{i,t} | y_{i,t-1})
+mLik <- array(0, c(N,Nt))
+
 # P(s, s' | y_{i,t})
 jPr2 <- array(NA, c(N,Nt,2,2))
+
+W <- array(NA, c(N,Nt,2,2))
 
 ###################################
 
@@ -88,10 +91,10 @@ Rs <- abs(rnorm(2, mean=0, sd=1e2))
 # step 6
 for (i in 1:N){
   for (t in 1:Nt){
-  
+    
     # step 7 
-    tPr[i,t,1] <- Logistic(alpha + beta * 0 + gamma * yt[i,t] + delta * 0 * yt[i,t])
-    tPr[i,t,2] <- Logistic(alpha + beta * 1 + gamma * yt[i,t] + delta * 1 * yt[i,t])
+    tPr[i,t,1] <- Logistic(alpha[1] + beta[1] * 0 + gamma[1] * yt[i,t] + delta[1] * 0 * yt[i,t])
+    tPr[i,t,2] <- Logistic(alpha[2] + beta[2] * 1 + gamma[2] * yt[i,t] + delta[2] * 1 * yt[i,t])
     
     # step 8 
     jPr[i,t,1,1] <- (1-tPr[i,t,1]) * (1-mPr[i,t])
@@ -105,11 +108,14 @@ for (i in 1:N){
         jEta[i,t,s1,s2] <- a[s1] + b[s2] * mEta[i,t,s2]
         jP[i,t,s1,s2] <- b[s2]**2 * mP[i,t,s2] + Qs[s1]
         
-        jV[i,t,s1,s2] <- yt[i,t] - k[s1] + Lmd[s1] * jEta[i,t,s1,s2]
+        jV[i,t,s1,s2] <- yt[i,t] - (k[s1] + Lmd[s1] * jEta[i,t,s1,s2])
         jF[i,t,s1,s2] <- Lmd[s1]**2 * jP[i,t,s1,s2] + Rs[s1]
         
-        mV[i,t] <- mV[i,t] + jV[i,t,s1,s2] * jPr[i,t,s1,s2]
-        mF[i,t] <- mF[i,t] + jF[i,t,s1,s2] * jPr[i,t,s1,s2]
+        if (is.na(jV[i,t,s1,s2]) == FALSE){
+          mV[i,t] <- mV[i,t] + jV[i,t,s1,s2] * jPr[i,t,s1,s2] }
+        
+        if (is.na(jF[i,t,s1,s2]) == FALSE){
+          mF[i,t] <- mF[i,t] + jF[i,t,s1,s2] * jPr[i,t,s1,s2] }
         
         Ks <- jP[i,t,s1,s2] * Lmd[s1] / jF[i,t,s1,s2]
         
@@ -120,19 +126,23 @@ for (i in 1:N){
         jLik[i,t,s1,s2] <- (2*pi)**(-1/2) * (jF[i,t,s1,s2])**(-1/2) * exp(-1/2 * jV[i,t,s1,s2]**2 / jF[i,t,s1,s2])
         
         # step 11 
-        mLik[i,t] <- mLik[i,t] + jLik[i,t,s1,s2] * jPr[i,t,s1,s2]
+        if (is.na(jLik[i,t,s1,s2]) == FALSE){
+          mLik[i,t] <- mLik[i,t] + jLik[i,t,s1,s2] * jPr[i,t,s1,s2] }
   
         jPr2[i,t,s1,s2] <- jLik[i,t,s1,s2] * jPr[i,t,s1,s2] / mLik[i,t]
         
-        if (s1 == 2) {mPr[i,t] <- mPr[i,t] + jPr2[i,t,s1,s2]}
+        if (s1 == 2 & is.na(jPr2[i,t,s1,s2]) == FALSE){
+          mPr[i,t] <- mPr[i,t] + jPr2[i,t,s1,s2] }
         
         # step 12
-        if (s1 == 1) {W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t])}
-        else if (s2 == 2) {W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t]}
+        if (s1 == 1 & is.na(jPr2[i,t,1,s2]) == FALSE){
+          W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
+        else if (s2 == 2 & is.na(jPr2[i,t,2,s2]) == FALSE){
+          W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
       }
       
       mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,] )
-      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1] + (mEta[i,t,s1] - jEta2[i,t,s1,s2])**2 ) )
+      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,s2] + (mEta[i,t,s1] - jEta2[i,t,s1,s2])**2 ) )
     }
   }
 }
