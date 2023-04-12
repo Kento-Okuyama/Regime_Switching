@@ -1,5 +1,8 @@
 str(df)
 
+# for reproducibility
+set.seed(42)
+
 ###################################
 # s=1: non-drop out state
 # s=2: drop out state
@@ -103,8 +106,8 @@ for (i in 1:N){
     # step 9 
     for (s1 in 1:2){
       for (s2 in 1:2){
-        jEta[i,t,s1,s2] <- a[s1] + b[s2] * mEta[i,t,s2]
-        jP[i,t,s1,s2] <- b[s2]**2 * mP[i,t,s2] + Qs[s1]
+        jEta[i,t,s1,s2] <- a[s1] + b[s1] * mEta[i,t,s2]
+        jP[i,t,s1,s2] <- b[s1]**2 * mP[i,t,s2] + Qs[s1]
         
         jV[i,t,s1,s2] <- yt[i,t] - (k[s1] + Lmd[s1] * jEta[i,t,s1,s2])
         jF[i,t,s1,s2] <- Lmd[s1]**2 * jP[i,t,s1,s2] + Rs[s1]
