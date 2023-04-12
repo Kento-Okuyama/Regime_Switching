@@ -67,10 +67,8 @@ W <- array(NA, c(N,Nt,2,2))
 
 a <- rnorm(2, mean=0, sd=1e2) 
 b <- abs(rnorm(2, mean=0, sd=1e2))
-c <- abs(rnorm(2, mean=0, sd=1e2))
 k <- rnorm(2, mean=0, sd=1e2) 
 Lmd <- abs(rnorm(2, mean=0, sd=1e2))
-A <- abs(rnorm(2, mean=0, sd=1e2))
 alpha <- abs(rnorm(2, mean=0, sd=1e2))
 beta <- abs(rnorm(2, mean=0, sd=1e2))
 gamma <- abs(rnorm(2, mean=0, sd=1e2))
@@ -141,8 +139,8 @@ for (i in 1:N){
           W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
       }
       
-      mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,] )
-      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,s2] + (mEta[i,t,s1] - jEta2[i,t,s1,s2])**2 ) )
+      mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,], na.rm=TRUE )
+      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,s2] + (mEta[i,t,s1] - jEta2[i,t,s1,s2])**2 ), na.rm=TRUE )
     }
   }
 }
