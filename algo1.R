@@ -138,12 +138,12 @@ for (i in 1:N){
         # step 12
         if (s1 == 1 & is.na(jPr2[i,t,1,s2]) == FALSE){
           W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
-        else if (s2 == 2 & is.na(jPr2[i,t,2,s2]) == FALSE){
+        else if (s1 == 2 & is.na(jPr2[i,t,2,s2]) == FALSE){
           W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
       }
       
       mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,], na.rm=TRUE )
-      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,s2] + (mEta[i,t,s1] - jEta2[i,t,s1,s2])**2 ), na.rm=TRUE )
+      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ), na.rm=TRUE )
     }
   }
 }
