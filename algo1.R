@@ -112,12 +112,6 @@ for (i in 1:N){
         jV[i,t,s1,s2] <- yt[i,t] - (k[s1] + Lmd[s1] * jEta[i,t,s1,s2])
         jF[i,t,s1,s2] <- Lmd[s1]**2 * jP[i,t,s1,s2] + Rs[s1]
         
-        if (is.na(jV[i,t,s1,s2]) == FALSE){
-          mV[i,t] <- mV[i,t] + jV[i,t,s1,s2] * jPr[i,t,s1,s2] }
-        
-        if (is.na(jF[i,t,s1,s2]) == FALSE){
-          mF[i,t] <- mF[i,t] + jF[i,t,s1,s2] * jPr[i,t,s1,s2] }
-        
         Ks <- jP[i,t,s1,s2] * Lmd[s1] / jF[i,t,s1,s2]
         
         jEta2[i,t,s1,s2] <- jEta[i,t,s1,s2] + Ks * jV[i,t,s1,s2] 
@@ -129,7 +123,7 @@ for (i in 1:N){
         # step 11 
         if (is.na(jLik[i,t,s1,s2]) == FALSE){
           mLik[i,t] <- mLik[i,t] + jLik[i,t,s1,s2] * jPr[i,t,s1,s2] }
-  
+        
         jPr2[i,t,s1,s2] <- jLik[i,t,s1,s2] * jPr[i,t,s1,s2] / mLik[i,t]
         
         if (s1 == 2 & is.na(jPr2[i,t,s1,s2]) == FALSE){
@@ -142,8 +136,11 @@ for (i in 1:N){
           W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
       }
       
+      # step 12 (continuation)
       mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,], na.rm=TRUE )
       mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ), na.rm=TRUE )
     }
   }
 }
+
+
