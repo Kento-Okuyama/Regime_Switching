@@ -42,7 +42,7 @@ jP2 <- array(NA, c(N,Nt,2,2))
 
 # marginal probability
 # P(s=2 | y_{i,t})
-mPr <- array(0, c(N,Nt+1))
+mPr <- array(0, c(N,Nt))
 
 # transition probability
 # P(s=2 | s', y_{i,t-1})
@@ -79,8 +79,8 @@ delta <- abs(rnorm(2, mean=0, sd=1e2))
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
-mEta[,1,1] <- rep(x=0, times=N)
-mP[,1,1] <- rep(x=1e3, times=N)
+mEta[,1,] <- rep(x=0, times=N)
+mP[,1,] <- rep(x=1e3, times=N)
 
 # step 4: initialize residual variances
 Qs <- abs(rnorm(2, mean=0, sd=1e2))
@@ -106,6 +106,7 @@ for (i in 1:N){
     # step 9 
     for (s1 in 1:2){
       for (s2 in 1:2){
+        
         jEta[i,t,s1,s2] <- a[s1] + b[s1] * mEta[i,t,s2]
         jP[i,t,s1,s2] <- b[s1]**2 * mP[i,t,s2] + Qs[s1]
         
@@ -123,17 +124,33 @@ for (i in 1:N){
         # step 11 
         if (is.na(jLik[i,t,s1,s2]) == FALSE){
           mLik[i,t] <- mLik[i,t] + jLik[i,t,s1,s2] * jPr[i,t,s1,s2] }
+      }
+    }
+       
+    for (s1 in 1:2){
+      for (s2 in 1:2){
         
-        jPr2[i,t,s1,s2] <- jLik[i,t,s1,s2] * jPr[i,t,s1,s2] / mLik[i,t]
+        if (is.na(jLik[i,t,s1,s2]) == FALSE){
+          jPr2[i,t,s1,s2] <- jLik[i,t,s1,s2] * jPr[i,t,s1,s2] / mLik[i,t] }
         
         if (s1 == 2 & is.na(jPr2[i,t,s1,s2]) == FALSE){
           mPr[i,t] <- mPr[i,t] + jPr2[i,t,s1,s2] }
+      }
+    }
+    
+    for (s1 in 1:2){
+      for (s2 in 1:2){
         
         # step 12
         if (s1 == 1 & is.na(jPr2[i,t,1,s2]) == FALSE){
-          W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
+          if (mPr[i,t] == 1) { W[i,t,1,s2] <- jPr2[i,t,1,s2] / 1e-5 }
+          else { W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
+        }
+        
         else if (s1 == 2 & is.na(jPr2[i,t,2,s2]) == FALSE){
-          W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
+          if (mPr[i,t] == 0) { W[i,t,2,s2] <- jPr2[i,t,2,s2] / 1e-5 }
+          else { W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
+        }
       }
       
       # step 12 (continuation)

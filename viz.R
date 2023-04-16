@@ -1,0 +1,66 @@
+par(mfrow=c(2,2))
+plot(1:Nt, jEta[1,,1,1])
+plot(1:Nt, jEta[1,,1,2])
+plot(1:Nt, jEta[1,,2,1])
+plot(1:Nt, jEta[1,,2,2])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jP[1,,1,1])
+plot(1:Nt, jP[1,,1,2])
+plot(1:Nt, jP[1,,2,1])
+plot(1:Nt, jP[1,,2,2])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jV[1,,1,1])
+plot(1:Nt, jV[1,,1,2])
+plot(1:Nt, jV[1,,2,1])
+plot(1:Nt, jV[1,,2,2])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jF[1,,1,1])
+plot(1:Nt, jF[1,,1,2])
+plot(1:Nt, jF[1,,2,1])
+plot(1:Nt, jF[1,,2,2])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jEta2[1,,1,1])
+plot(1:Nt, jEta2[1,,1,2])
+plot(1:Nt, jEta2[1,,2,1])
+plot(1:Nt, jEta2[1,,2,2])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jP2[1,,1,1])
+plot(1:Nt, jP2[1,,1,2])
+plot(1:Nt, jP2[1,,2,1])
+plot(1:Nt, jP2[1,,2,2])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jLik[1,,1,1])
+plot(1:Nt, jLik[1,,1,2])
+plot(1:Nt, jLik[1,,2,1])
+plot(1:Nt, jLik[1,,2,2])
+
+par(mfrow=c(1,1))
+plot(1:Nt, mLik[1,])
+
+par(mfrow=c(2,2))
+plot(1:Nt, jPr2[1,,1,1])
+plot(1:Nt, jPr2[1,,1,2])
+plot(1:Nt, jPr2[1,,2,1])
+plot(1:Nt, jPr2[1,,2,2])
+
+par(mfrow=c(1,1))
+plot(1:Nt, mPr[1,])
+
+par(mfrow=c(2,2))
+plot(1:Nt, W[1,,1,1])
+plot(1:Nt, W[1,,1,2])
+plot(1:Nt, W[1,,2,1])
+plot(1:Nt, W[1,,2,2])
+
+par(mfrow=c(2,1))
+plot(1:Nt,  mEta[1,2:(Nt+1),1])
+plot(1:Nt,  mEta[1,2:(Nt+1),2])
+
+plot(1:Nt,  mP[1,2:(Nt+1),1])
+plot(1:Nt,  mP[1,2:(Nt+1),2])
