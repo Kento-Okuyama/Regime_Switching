@@ -42,7 +42,7 @@ jP2 <- array(NA, c(N,Nt,2,2))
 
 # marginal probability
 # P(s=2 | y_{i,t})
-mPr <- array(0, c(N,Nt))
+mPr <- array(1e-1, c(N,Nt))
 
 # transition probability
 # P(s=2 | s', y_{i,t-1})
@@ -72,10 +72,10 @@ a <- rnorm(2, mean=0, sd=1e2)
 b <- abs(rnorm(2, mean=0, sd=1e2))
 k <- rnorm(2, mean=0, sd=1e2) 
 Lmd <- abs(rnorm(2, mean=0, sd=1e2))
-alpha <- abs(rnorm(2, mean=0, sd=1e2))
-beta <- abs(rnorm(2, mean=0, sd=1e2))
-gamma <- abs(rnorm(2, mean=0, sd=1e2))
-delta <- abs(rnorm(2, mean=0, sd=1e2))
+alpha <- abs(rnorm(2, mean=0, sd=1))
+beta <- abs(rnorm(2, mean=0, sd=1))
+gamma <- abs(rnorm(2, mean=0, sd=1))
+delta <- abs(rnorm(2, mean=0, sd=1))
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
@@ -143,12 +143,12 @@ for (i in 1:N){
         
         # step 12
         if (s1 == 1 & is.na(jPr2[i,t,1,s2]) == FALSE){
-          if (mPr[i,t] == 1) { W[i,t,1,s2] <- jPr2[i,t,1,s2] / 1e-5 }
+          if (mPr[i,t] == 1) { W[i,t,1,s2] <- max(jPr2[i,t,1,s2], 1e-5) / 1e-5 }
           else { W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
         }
         
         else if (s1 == 2 & is.na(jPr2[i,t,2,s2]) == FALSE){
-          if (mPr[i,t] == 0) { W[i,t,2,s2] <- jPr2[i,t,2,s2] / 1e-5 }
+          if (mPr[i,t] == 0) { W[i,t,2,s2] <- max(jPr2[i,t,2,s2], 1e-5) / 1e-5 }
           else { W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
         }
       }
@@ -159,7 +159,3 @@ for (i in 1:N){
     }
   }
 }
-print(W[1,1,1,])
-print(jEta2[1,1,1,])
-jPr2[1,1,1,1]
-mPr[1,1]
