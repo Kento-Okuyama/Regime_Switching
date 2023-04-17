@@ -79,8 +79,8 @@ delta <- abs(rnorm(2, mean=0, sd=1e2))
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
-mEta[,1,] <- rep(x=0, times=N)
-mP[,1,] <- rep(x=1e3, times=N)
+mEta[,1,1] <- rep(x=0, times=N)
+mP[,1,1] <- rep(x=1e3, times=N)
 
 # step 4: initialize residual variances
 Qs <- abs(rnorm(2, mean=0, sd=1e2))
@@ -159,5 +159,7 @@ for (i in 1:N){
     }
   }
 }
-
-
+print(W[1,1,1,])
+print(jEta2[1,1,1,])
+jPr2[1,1,1,1]
+mPr[1,1]
