@@ -2,7 +2,7 @@
 set.seed(42)
 
 # number of subjects
-N <- 100
+N <- 10
 # number of time responses
 Nt <- 150
 

@@ -63,14 +63,14 @@ W = torch_randn(N, Nt, 2, 2)
 
 # step 2: initialize set of parameters
 
-a <- rnorm(2, mean=0, sd=1) 
-b <- abs(rnorm(2, mean=0, sd=1))
-k <- rnorm(2, mean=0, sd=1) 
-Lmd <- abs(rnorm(2, mean=0, sd=1))
-alpha <- abs(rnorm(2, mean=0, sd=1e-1))
-beta <- abs(rnorm(2, mean=0, sd=1e-1))
-gamma <- abs(rnorm(2, mean=0, sd=1e-1))
-delta <- rnorm(2, mean=0, sd=1e-1)
+a <- torch_randn(2)
+b <- torch_abs(torch_randn(2))
+k <- torch_randn(2)
+Lmd <- torch_randn(2)
+alpha <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
+beta <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
+gamma <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
+delta <- torch_normal(mean=0, std=1e-1, size=2)
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
@@ -78,14 +78,12 @@ mEta[,1,1] <- rep(x=0, times=N)
 mP[,1,1] <- rep(x=1e3, times=N)
 
 # step 4: initialize residual variances
-Qs <- abs(rnorm(2, mean=0, sd=1e2))
-Rs <- abs(rnorm(2, mean=0, sd=1e2))
+Qs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
+Rs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 
 # step 5: initialize marginal probability
 # mPr[, 0] <- 0 # no drop out at t=0
 
-Qs <- torch_tensor(Qs)
-Rs <- torch_tensor(Rs)
 
 a <- torch_tensor(a, requires_grad=TRUE)
 b <- torch_tensor(b, requires_grad=TRUE)
@@ -172,6 +170,6 @@ for (i in 1:N){
 
 sumLik <- sum(mLik)
 sumLik$grad_fn
-sumLik$backward()
+sumLik$backward(retain_graph=TRUE)
 a$grad
 
