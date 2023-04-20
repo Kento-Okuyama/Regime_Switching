@@ -9,12 +9,6 @@ set.seed(42)
 # s=2: drop out state
 ###################################
 
-# logistic function 
-# to avoid exp overflow 
-# x >=0: Logistic(x) = 1 / (1 + exp(-x))
-# x < 0: Logistic(x) = exp(x) / (1 + exp(x))
-Logistic <- function(x) { exp(min(x,0)) / (1 + exp(-abs(x))) }
-
 # E[eta_{i,t|t-1}^{s,s'}]
 jEta = torch_randn(N, Nt, 2, 2)
 # Cov[eta_{i,t|t-1}^{s,s'}]
@@ -93,7 +87,6 @@ Rs <- abs(rnorm(2, mean=0, sd=1e2))
 Qs <- torch_tensor(Qs)
 Rs <- torch_tensor(Rs)
 
-
 a <- torch_tensor(a, requires_grad=TRUE)
 b <- torch_tensor(b, requires_grad=TRUE)
 k <- torch_tensor(k, requires_grad=TRUE)
@@ -109,8 +102,8 @@ for (i in 1:N){
   for (t in 1:Nt){
     
     # step 7 
-    tPr[i,t,1] <- Logistic(alpha[1] + beta[1] * 0 + gamma[1] * yt[i,t] + delta[1] * 0 * yt[i,t])
-    tPr[i,t,2] <- Logistic(alpha[2] + beta[2] * 1 + gamma[2] * yt[i,t] + delta[2] * 1 * yt[i,t])
+    tPr[i,t,1] <- torch_sigmoid(alpha[1] + beta[1] * 0 + gamma[1] * yt[i,t] + delta[1] * 0 * yt[i,t])
+    tPr[i,t,2] <- torch_sigmoid(alpha[2] + beta[2] * 1 + gamma[2] * yt[i,t] + delta[2] * 1 * yt[i,t])
     
     # step 8 
     jPr[i,t,1,1] <- (1-tPr[i,t,1]) * (1-mPr[i,t])
@@ -136,7 +129,7 @@ for (i in 1:N){
         jP2[i,t,s1,s2] <- jP[i,t,s1,s2] - Ks * Lmd[s1] * jP[i,t,s1,s2]
         
         # step 10 
-        jLik[i,t,s1,s2] <- (2*pi)**(-1/2) * (jF[i,t,s1,s2])**(-1/2) * exp(-1/2 * jV[i,t,s1,s2]**2 / jF[i,t,s1,s2])
+        jLik[i,t,s1,s2] <- (2*pi)**(-1/2) * (jF[i,t,s1,s2])**(-1/2) * torch_exp(-1/2 * jV[i,t,s1,s2]**2 / jF[i,t,s1,s2])
         
         # step 11 
         if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
@@ -176,3 +169,9 @@ for (i in 1:N){
     }
   }
 }
+
+sumLik <- sum(mLik)
+sumLik$grad_fn
+sumLik$backward()
+a$grad
+
