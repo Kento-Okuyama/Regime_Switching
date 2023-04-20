@@ -1,3 +1,4 @@
+library(torch)
 str(df)
 
 # for reproducibility
@@ -15,52 +16,52 @@ set.seed(42)
 Logistic <- function(x) { exp(min(x,0)) / (1 + exp(-abs(x))) }
 
 # E[eta_{i,t|t-1}^{s,s'}]
-jEta <- array(NA, c(N,Nt,2,2))
+jEta = torch_randn(N, Nt, 2, 2)
 # Cov[eta_{i,t|t-1}^{s,s'}]
-jP <- array(NA, c(N,Nt,2,2))
+jP = torch_randn(N, Nt, 2, 2)
 
 # E[eta_{i,t-1|t-1}^{s'}]
-mEta <- array(NA, c(N,Nt+1,2))
+mEta = torch_randn(N, Nt+1, 2)
 # Cov[eta_{i,t-1|t-1}^{s'}]
-mP <- array(NA, c(N,Nt+1,2))
+mP = torch_randn(N, Nt+1, 2)
 
 
 # v_{i,t}^{s,s'} 
-jV <- array(NA, c(N,Nt,2,2))
+jV = torch_randn(N, Nt, 2, 2)
 # F_{i,t}^{s,s'}
-jF <- array(NA, c(N,Nt,2,2))
+jF = torch_randn(N, Nt, 2, 2)
 
 # v_{i,t} 
-mV <- array(0, c(N,Nt))
+mV = torch_zeros(N, Nt)
 # F_{i,t}
-mF <- array(0, c(N,Nt))
+mF = torch_zeros(N, Nt)
 
 # E[eta_{i,t|t}^{s,s'}]
-jEta2 <- array(NA, c(N,Nt,2,2))
+jEta2 = torch_randn(N, Nt, 2, 2)
 # Cov[eta_{i,t|t}^{s,s'}]
-jP2 <- array(NA, c(N,Nt,2,2))
+jP2 = torch_randn(N, Nt, 2, 2)
 
 # marginal probability
 # P(s=2 | y_{i,t})
-mPr <- array(1e-2, c(N,Nt))
+mPr = torch_full(c(N, Nt), 1e-2)
 
 # transition probability
 # P(s=2 | s', y_{i,t-1})
-tPr <- array(NA, c(N,Nt,2))
+tPr = torch_zeros(N, Nt, 2)
 
 # joint probability
 # P(s, s' | y_{i,t-1})
-jPr <- array(NA, c(N,Nt,2,2))
+jPr = torch_zeros(N, Nt, 2, 2)
 
 # f(y_{i,t} | s, s', y_{i,t-1})
-jLik <- array(NA, c(N,Nt,2,2))
+jLik = torch_zeros(N, Nt, 2, 2)
 # f(y_{i,t} | y_{i,t-1})
-mLik <- array(0, c(N,Nt))
+mLik = torch_zeros(N, Nt)
 
 # P(s, s' | y_{i,t})
-jPr2 <- array(NA, c(N,Nt,2,2))
+jPr2 = torch_zeros(N, Nt, 2, 2)
 
-W <- array(NA, c(N,Nt,2,2))
+W = torch_randn(N, Nt, 2, 2)
 
 ###################################
 
@@ -89,8 +90,22 @@ Rs <- abs(rnorm(2, mean=0, sd=1e2))
 # step 5: initialize marginal probability
 # mPr[, 0] <- 0 # no drop out at t=0
 
+Qs <- torch_tensor(Qs)
+Rs <- torch_tensor(Rs)
+
+
+a <- torch_tensor(a, requires_grad=TRUE)
+b <- torch_tensor(b, requires_grad=TRUE)
+k <- torch_tensor(k, requires_grad=TRUE)
+Lmd <- torch_tensor(Lmd, requires_grad=TRUE)
+alpha <- torch_tensor(alpha, requires_grad=TRUE)
+beta <- torch_tensor(beta, requires_grad=TRUE)
+gamma <- torch_tensor(gamma, requires_grad=TRUE)
+delta <- torch_tensor(delta, requires_grad=TRUE)
+
 # step 6
 for (i in 1:N){
+  print(i)
   for (t in 1:Nt){
     
     # step 7 
@@ -99,9 +114,11 @@ for (i in 1:N){
     
     # step 8 
     jPr[i,t,1,1] <- (1-tPr[i,t,1]) * (1-mPr[i,t])
+
     jPr[i,t,2,1] <- tPr[i,t,1] * (1-mPr[i,t])
     jPr[i,t,1,2] <- (1-tPr[i,t,2]) * mPr[i,t]
     jPr[i,t,2,2] <- tPr[i,t,2] * mPr[i,t]
+    
     
     # step 9 
     for (s1 in 1:2){
@@ -122,18 +139,18 @@ for (i in 1:N){
         jLik[i,t,s1,s2] <- (2*pi)**(-1/2) * (jF[i,t,s1,s2])**(-1/2) * exp(-1/2 * jV[i,t,s1,s2]**2 / jF[i,t,s1,s2])
         
         # step 11 
-        if (is.na(jLik[i,t,s1,s2]) == FALSE){
+        if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
           mLik[i,t] <- mLik[i,t] + jLik[i,t,s1,s2] * jPr[i,t,s1,s2] }
       }
     }
-       
+    
     for (s1 in 1:2){
       for (s2 in 1:2){
         
-        if (is.na(jLik[i,t,s1,s2]) == FALSE){
+        if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
           jPr2[i,t,s1,s2] <- jLik[i,t,s1,s2] * jPr[i,t,s1,s2] / mLik[i,t] }
         
-        if (s1 == 2 & is.na(jPr2[i,t,s1,s2]) == FALSE){
+        if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,s1,s2]), FALSE)){
           mPr[i,t] <- mPr[i,t] + jPr2[i,t,s1,s2] }
       }
     }
@@ -142,20 +159,20 @@ for (i in 1:N){
       for (s2 in 1:2){
         
         # step 12
-        if (s1 == 1 & is.na(jPr2[i,t,1,s2]) == FALSE){
-          if (mPr[i,t] == 1) { W[i,t,1,s2] <- max(jPr2[i,t,1,s2], 1e-5) / 1e-5 }
+        if (s1 == 1 & torch_allclose(torch_isnan(jPr2[i,t,1,s2]), FALSE)){
+          if (torch_allclose(mPr[i,t], 1)) { W[i,t,1,s2] <- max(jPr2[i,t,1,s2], 1e-5) / 1e-5 }
           else { W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
         }
         
-        else if (s1 == 2 & is.na(jPr2[i,t,2,s2]) == FALSE){
-          if (mPr[i,t] == 0) { W[i,t,2,s2] <- max(jPr2[i,t,2,s2], 1e-5) / 1e-5 }
+        else if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,2,s2]), FALSE)){
+          if (torch_allclose(mPr[i,t], 0)) { W[i,t,2,s2] <- max(jPr2[i,t,2,s2], 1e-5) / 1e-5 }
           else { W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
         }
       }
       
       # step 12 (continuation)
-      mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,], na.rm=TRUE )
-      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ), na.rm=TRUE )
+      mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,])
+      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ))
     }
   }
 }
