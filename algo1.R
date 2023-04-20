@@ -42,7 +42,7 @@ jP2 <- array(NA, c(N,Nt,2,2))
 
 # marginal probability
 # P(s=2 | y_{i,t})
-mPr <- array(1e-1, c(N,Nt))
+mPr <- array(1e-2, c(N,Nt))
 
 # transition probability
 # P(s=2 | s', y_{i,t-1})
@@ -68,14 +68,14 @@ W <- array(NA, c(N,Nt,2,2))
 
 # step 2: initialize set of parameters
 
-a <- rnorm(2, mean=0, sd=1e2) 
-b <- abs(rnorm(2, mean=0, sd=1e2))
-k <- rnorm(2, mean=0, sd=1e2) 
-Lmd <- abs(rnorm(2, mean=0, sd=1e2))
-alpha <- abs(rnorm(2, mean=0, sd=1))
-beta <- abs(rnorm(2, mean=0, sd=1))
-gamma <- abs(rnorm(2, mean=0, sd=1))
-delta <- abs(rnorm(2, mean=0, sd=1))
+a <- rnorm(2, mean=0, sd=1) 
+b <- abs(rnorm(2, mean=0, sd=1))
+k <- rnorm(2, mean=0, sd=1) 
+Lmd <- abs(rnorm(2, mean=0, sd=1))
+alpha <- abs(rnorm(2, mean=0, sd=1e-1))
+beta <- abs(rnorm(2, mean=0, sd=1e-1))
+gamma <- abs(rnorm(2, mean=0, sd=1e-1))
+delta <- rnorm(2, mean=0, sd=1e-1)
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
