@@ -15,9 +15,9 @@ jEta = torch_full(c(N, Nt, 2, 2), NaN)
 jP = torch_full(c(N, Nt, 2, 2), NaN)
 
 # E[eta_{i,t-1|t-1}^{s'}]
-mEta = torch_zeros(N, Nt+1, 2)
+mEta = torch_full(c(N, Nt+1, 2), NaN)
 # Cov[eta_{i,t-1|t-1}^{s'}]
-mP = torch_zeros(N, Nt+1, 2)
+mP = torch_full(c(N, Nt+1, 2), NaN)
 
 # v_{i,t}^{s,s'} 
 jV = torch_full(c(N, Nt, 2, 2), NaN)
@@ -35,11 +35,11 @@ mPr = torch_full(c(N, Nt), 1e-2)
 
 # transition probability
 # P(s=2 | s', y_{i,t-1})
-tPr = torch_zeros(N, Nt, 2)
+tPr = torch_full(c(N, Nt, 2), NaN)
 
 # joint probability
 # P(s, s' | y_{i,t-1})
-jPr = torch_zeros(N, Nt, 2, 2)
+jPr = torch_full(c(N, Nt, 2, 2), NaN)
 
 # f(y_{i,t} | s, s', y_{i,t-1})
 jLik = torch_full(c(N, Nt, 2, 2), NaN)
@@ -47,7 +47,7 @@ jLik = torch_full(c(N, Nt, 2, 2), NaN)
 mLik = torch_zeros(N, Nt)
 
 # P(s, s' | y_{i,t})
-jPr2 = torch_zeros(N, Nt, 2, 2)
+jPr2 = torch_full(c(N, Nt, 2, 2), NaN)
 
 W = torch_full(c(N, Nt, 2, 2), NaN)
 
@@ -66,8 +66,11 @@ delta <- torch_normal(mean=0, std=1e-1, size=2)
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
-mEta[,1,1] <- rep(x=0, times=N)
-mP[,1,1] <- rep(x=1e3, times=N)
+
+for (s in 1:2){
+  mEta[,1,s] <- rep(x=0, times=N)
+  mP[,1,s] <- rep(x=1e3, times=N)
+}
 
 # step 4: initialize residual variances
 Qs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
@@ -165,4 +168,3 @@ sumLik$grad_fn
 sumLik$backward()
 a$grad
 
-print(mP)
