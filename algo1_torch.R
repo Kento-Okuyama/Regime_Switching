@@ -1,5 +1,4 @@
 library(torch)
-torch_anomaly_mode(TRUE)
 str(df)
 
 # for reproducibility
@@ -11,9 +10,9 @@ set.seed(42)
 ###################################
 
 # E[eta_{i,t|t-1}^{s,s'}]
-jEta = torch_randn(N, Nt, 2, 2)
+jEta = torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t-1}^{s,s'}]
-jP = torch_randn(N, Nt, 2, 2)
+jP = torch_full(c(N, Nt, 2, 2), NaN)
 
 # E[eta_{i,t-1|t-1}^{s'}]
 mEta = torch_randn(N, Nt+1, 2)
@@ -21,19 +20,14 @@ mEta = torch_randn(N, Nt+1, 2)
 mP = torch_randn(N, Nt+1, 2)
 
 # v_{i,t}^{s,s'} 
-jV = torch_randn(N, Nt, 2, 2)
+jV = torch_full(c(N, Nt, 2, 2), NaN)
 # F_{i,t}^{s,s'}
-jF = torch_randn(N, Nt, 2, 2)
-
-# v_{i,t} 
-mV = torch_zeros(N, Nt)
-# F_{i,t}
-mF = torch_zeros(N, Nt)
+jF = torch_full(c(N, Nt, 2, 2), NaN)
 
 # E[eta_{i,t|t}^{s,s'}]
-jEta2 = torch_randn(N, Nt, 2, 2)
+jEta2 = torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t}^{s,s'}]
-jP2 = torch_randn(N, Nt, 2, 2)
+jP2 = torch_full(c(N, Nt, 2, 2), NaN)
 
 # marginal probability
 # P(s=2 | y_{i,t})
@@ -48,14 +42,14 @@ tPr = torch_zeros(N, Nt, 2)
 jPr = torch_zeros(N, Nt, 2, 2)
 
 # f(y_{i,t} | s, s', y_{i,t-1})
-jLik = torch_zeros(N, Nt, 2, 2)
+jLik = torch_full(c(N, Nt, 2, 2), NaN)
 # f(y_{i,t} | y_{i,t-1})
 mLik = torch_zeros(N, Nt)
 
 # P(s, s' | y_{i,t})
 jPr2 = torch_zeros(N, Nt, 2, 2)
 
-W = torch_randn(N, Nt, 2, 2)
+W = torch_full(c(N, Nt, 2, 2), NaN)
 
 ###################################
 
@@ -130,6 +124,9 @@ for (i in 1:N){
       }
     }
     
+    # step 11
+    #mLik[i,t] <- torch_sum(jLik[i,t,,] * jPr[i,t,,])
+    
     for (s1 in 1:2){
       for (s2 in 1:2){
         
@@ -167,3 +164,5 @@ sumLik <- sum(mLik)
 sumLik$grad_fn
 sumLik$backward()
 a$grad
+
+print(mP)
