@@ -98,32 +98,33 @@ for (i in 1:N){
     tPr[i,t,2] <- torch_sigmoid(alpha[2] + beta[2] * 1 + gamma[2] * yt[i,t] + delta[2] * 1 * yt[i,t])
     
     # step 8 
-    jPr[i,t,1,1] <- (1-tPr[i,t,1]) * (1-mPr[i,t])
-    jPr[i,t,2,1] <- tPr[i,t,1] * (1-mPr[i,t])
-    jPr[i,t,1,2] <- (1-tPr[i,t,2]) * mPr[i,t]
-    jPr[i,t,2,2] <- tPr[i,t,2] * mPr[i,t]
+    jPr[i,t,1,1] <- (1-torch_clone(tPr[i,t,1])) * (1-torch_clone(mPr[i,t]))
+    jPr[i,t,2,1] <- torch_clone(tPr[i,t,1]) * (1-torch_clone(mPr[i,t]))
+    jPr[i,t,1,2] <- (1-torch_clone(tPr[i,t,2])) * torch_clone(mPr[i,t])
+    jPr[i,t,2,2] <- torch_clone(tPr[i,t,2]) * torch_clone(mPr[i,t])
     
     # step 9 
     for (s1 in 1:2){
       for (s2 in 1:2){
         
-        jEta[i,t,s1,s2] <- a[s1] + b[s1] * mEta[i,t,s2]
-        jP[i,t,s1,s2] <- b[s1]**2 * mP[i,t,s2] + Qs[s1]
+        jEta[i,t,s1,s2] <- a[s1] + b[s1] * torch_clone(mEta[i,t,s2])
+        jP[i,t,s1,s2] <- b[s1]**2 * torch_clone(mP[i,t,s2]) + Qs[s1]
         
-        jV[i,t,s1,s2] <- yt[i,t] - (k[s1] + Lmd[s1] * jEta[i,t,s1,s2])
-        jF[i,t,s1,s2] <- Lmd[s1]**2 * jP[i,t,s1,s2] + Rs[s1]
+        jV[i,t,s1,s2] <- yt[i,t] - (k[s1] + Lmd[s1] * torch_clone(jEta[i,t,s1,s2]))
+        jF[i,t,s1,s2] <- Lmd[s1]**2 * torch_clone(jP[i,t,s1,s2]) + Rs[s1]
         
-        Ks <- jP[i,t,s1,s2] * Lmd[s1] / jF[i,t,s1,s2]
+        Ks <- torch_clone(jP[i,t,s1,s2]) * Lmd[s1] / torch_clone(jF[i,t,s1,s2])
         
-        jEta2[i,t,s1,s2] <- jEta[i,t,s1,s2] + Ks * jV[i,t,s1,s2] 
-        jP2[i,t,s1,s2] <- jP[i,t,s1,s2] - Ks * Lmd[s1] * jP[i,t,s1,s2]
+        jEta2[i,t,s1,s2] <- torch_clone(jEta[i,t,s1,s2]) + torch_clone(Ks) * torch_clone(jV[i,t,s1,s2]) 
+        jP2[i,t,s1,s2] <- torch_clone(jP[i,t,s1,s2]) - torch_clone(Ks) * Lmd[s1] * torch_clone(jP[i,t,s1,s2])
         
         # step 10 
-        jLik[i,t,s1,s2] <- (2*pi)**(-1/2) * (jF[i,t,s1,s2])**(-1/2) * torch_exp(-1/2 * jV[i,t,s1,s2]**2 / jF[i,t,s1,s2])
+        jLik[i,t,s1,s2] <- (2*pi)**(-1/2) * (torch_clone(jF[i,t,s1,s2]))**(-1/2) *
+          torch_exp(-1/2 * torch_clone(jV[i,t,s1,s2])**2 / torch_clone(jF[i,t,s1,s2]))
         
         # step 11 
         if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
-          mLik[i,t] <- mLik[i,t] + jLik[i,t,s1,s2] * jPr[i,t,s1,s2] }
+          mLik[i,t] <- torch_clone(mLik[i,t]) + torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) }
       }
     }
     
@@ -131,36 +132,47 @@ for (i in 1:N){
       for (s2 in 1:2){
         
         if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
-          jPr2[i,t,s1,s2] <- jLik[i,t,s1,s2] * jPr[i,t,s1,s2] / mLik[i,t] }
+          jPr2[i,t,s1,s2] <- torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) / torch_clone(mLik[i,t]) }
         
         if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,s1,s2]), FALSE)){
-          mPr[i,t] <- mPr[i,t] + jPr2[i,t,s1,s2] }
+          mPr[i,t] <- torch_clone(mPr[i,t]) + torch_clone(jPr2[i,t,s1,s2]) }
       }
-    }
+    }   
     
     for (s1 in 1:2){
       for (s2 in 1:2){
         
         # step 12
         if (s1 == 1 & torch_allclose(torch_isnan(jPr2[i,t,1,s2]), FALSE)){
-          if (torch_allclose(mPr[i,t], 1)) { W[i,t,1,s2] <- max(jPr2[i,t,1,s2], 1e-5) / 1e-5 }
-          else { W[i,t,1,s2] <- jPr2[i,t,1,s2] / (1-mPr[i,t]) }
+          if (torch_allclose(mPr[i,t], 1)) { W[i,t,1,s2] <- max(torch_clone(Pr2[i,t,1,s2]), 1e-5) / 1e-5 }
+          else { W[i,t,1,s2] <- torch_clone(jPr2[i,t,1,s2]) / (1-torch_clone(mPr[i,t])) }
         }
         
         else if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,2,s2]), FALSE)){
-          if (torch_allclose(mPr[i,t], 0)) { W[i,t,2,s2] <- max(jPr2[i,t,2,s2], 1e-5) / 1e-5 }
-          else { W[i,t,2,s2] <- jPr2[i,t,2,s2] / mPr[i,t] }
+          if (torch_allclose(mPr[i,t], 0)) { W[i,t,2,s2] <- max(torch_clone(jPr2[i,t,2,s2]), 1e-5) / 1e-5 }
+          else { W[i,t,2,s2] <- torch_clone(jPr2[i,t,2,s2]) / torch_clone(mPr[i,t]) }
         }
       }
       
       # step 12 (continuation)
-      mEta[i,t+1,s1] <- torch_sum( W[i,t,s1,] * jEta2[i,t,s1,])
-      mP[i,t+1,s1] <- torch_sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ))
+      mEta[i,t+1,s1] <- torch_sum( torch_clone(W[i,t,s1,]) * torch_clone(jEta2[i,t,s1,]))
+      mP[i,t+1,s1] <- torch_sum( torch_clone(W[i,t,s1,]) * ( torch_clone(jP2[i,t,s1,]) + (torch_clone(mEta[i,t+1,s1]) - torch_clone(jEta2[i,t,s1,]))**2 ))
     }
+    
+    
+    
   }
 }
 
 sumLik <- sum(mLik)
 sumLik$grad_fn
 sumLik$backward()
+
 a$grad
+b$grad
+k$grad
+Lmd$grad
+alpha$grad
+beta$grad
+gamma$grad
+delta$grad
