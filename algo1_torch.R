@@ -15,9 +15,9 @@ jEta = torch_full(c(N, Nt, 2, 2), NaN)
 jP = torch_full(c(N, Nt, 2, 2), NaN)
 
 # E[eta_{i,t-1|t-1}^{s'}]
-mEta = torch_randn(N, Nt+1, 2)
+mEta = torch_zeros(N, Nt+1, 2)
 # Cov[eta_{i,t-1|t-1}^{s'}]
-mP = torch_randn(N, Nt+1, 2)
+mP = torch_zeros(N, Nt+1, 2)
 
 # v_{i,t}^{s,s'} 
 jV = torch_full(c(N, Nt, 2, 2), NaN)

@@ -1,26 +1,11 @@
-[1] 1
-[1] 2
-[1] 3
-[1] 4
-[1] 5
-[1] 6
-[1] 7
-[1] 8
-[1] 9
-[1] 10
-> 
-  > sumLik <- sum(mLik)
-  > sumLik$grad_fn
-  SumBackward0> sumLik$backward(retain_graph=TRUE)
-  Error in (function (self, inputs, gradient, retain_graph, create_graph)  : 
-              one of the variables needed for gradient computation has been modified by an inplace operation: [CPUFloatType []], which is output 0 of AsStridedBackward0, is at version 3001; expected version 2999 instead. Hint: enable anomaly detection to find the operation that failed to compute its gradient, with torch.autograd.set_detect_anomaly(True).
-            Exception raised from unpack at C:\actions-runner\_work\pytorch\pytorch\builder\windows\pytorch\torch\csrc\autograd\saved_variable.cpp:164 (most recent call first):
-              00007FFD6ED8DA2200007FFD6ED8D9C0 c10.dll!c10::Error::Error [<unknown file> @ <unknown line number>]
-            00007FFD6ED8D4AE00007FFD6ED8D460 c10.dll!c10::detail::torchCheckFail [<unknown file> @ <unknown line number>]
-            00007FFCE2EE43C600007FFCE2EE3CE0 torch_cpu.dll!torch::autograd::SavedVariable::unpack [<unknown file> @ <unknown line number>]
-            00007FFCE250B46400007FFCE250B370 torch_cpu.dll!torch::autograd::generated::MulBackward0::apply [<unknown file> @ <unknown line number>]
-            00007FFCE2
-            > a$grad
-            torch_tensor
-            [ Tensor (undefined) ]
-            >
+> sumLik <- sum(mLik)
+> sumLik$grad_fn
+SumBackward0> sumLik$backward()
+Error in (function (self, inputs, gradient, retain_graph, create_graph)  : 
+  one of the variables needed for gradient computation has been modified by an inplace operation: [CPUFloatType []], which is output 0 of AsStridedBackward0, is at version 41; expected version 39 instead. Hint: enable anomaly detection to find the operation that failed to compute its gradient, with torch.autograd.set_detect_anomaly(True).
+Exception raised from unpack at C:\actions-runner\_work\pytorch\pytorch\builder\windows\pytorch\torch\csrc\autograd\saved_variable.cpp:164 (most recent call first):
+00007FF80835DA2200007FF80835D9C0 c10.dll!c10::Error::Error [<unknown file> @ <unknown line number>]
+00007FF80835D4AE00007FF80835D460 c10.dll!c10::detail::torchCheckFail [<unknown file> @ <unknown line number>]
+00007FFF55CF43C600007FFF55CF3CE0 torch_cpu.dll!torch::autograd::SavedVariable::unpack [<unknown file> @ <unknown line number>]
+00007FFF5531B46400007FFF5531B370 torch_cpu.dll!torch::autograd::generated::MulBackward0::apply [<unknown file> @ <unknown line number>]
+00007FFF552E42
