@@ -127,9 +127,6 @@ for (i in 1:N){
       }
     }
     
-    # step 11
-    #mLik[i,t] <- torch_sum(jLik[i,t,,] * jPr[i,t,,])
-    
     for (s1 in 1:2){
       for (s2 in 1:2){
         
@@ -167,4 +164,3 @@ sumLik <- sum(mLik)
 sumLik$grad_fn
 sumLik$backward()
 a$grad
-
