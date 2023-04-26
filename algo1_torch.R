@@ -1,4 +1,5 @@
 library(torch)
+torch_anomaly_mode(TRUE)
 str(df)
 
 # for reproducibility
@@ -18,7 +19,6 @@ jP = torch_randn(N, Nt, 2, 2)
 mEta = torch_randn(N, Nt+1, 2)
 # Cov[eta_{i,t-1|t-1}^{s'}]
 mP = torch_randn(N, Nt+1, 2)
-
 
 # v_{i,t}^{s,s'} 
 jV = torch_randn(N, Nt, 2, 2)
@@ -60,9 +60,7 @@ W = torch_randn(N, Nt, 2, 2)
 ###################################
 
 # step 1: input {y_{it}}
-
 # step 2: initialize set of parameters
-
 a <- torch_randn(2)
 b <- torch_abs(torch_randn(2))
 k <- torch_randn(2)
@@ -84,7 +82,6 @@ Rs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 # step 5: initialize marginal probability
 # mPr[, 0] <- 0 # no drop out at t=0
 
-
 a <- torch_tensor(a, requires_grad=TRUE)
 b <- torch_tensor(b, requires_grad=TRUE)
 k <- torch_tensor(k, requires_grad=TRUE)
@@ -105,11 +102,9 @@ for (i in 1:N){
     
     # step 8 
     jPr[i,t,1,1] <- (1-tPr[i,t,1]) * (1-mPr[i,t])
-
     jPr[i,t,2,1] <- tPr[i,t,1] * (1-mPr[i,t])
     jPr[i,t,1,2] <- (1-tPr[i,t,2]) * mPr[i,t]
     jPr[i,t,2,2] <- tPr[i,t,2] * mPr[i,t]
-    
     
     # step 9 
     for (s1 in 1:2){
@@ -162,14 +157,13 @@ for (i in 1:N){
       }
       
       # step 12 (continuation)
-      mEta[i,t+1,s1] <- sum( W[i,t,s1,] * jEta2[i,t,s1,])
-      mP[i,t+1,s1] <- sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ))
+      mEta[i,t+1,s1] <- torch_sum( W[i,t,s1,] * jEta2[i,t,s1,])
+      mP[i,t+1,s1] <- torch_sum( W[i,t,s1,] * ( jP2[i,t,s1,] + (mEta[i,t+1,s1] - jEta2[i,t,s1,])**2 ))
     }
   }
 }
 
 sumLik <- sum(mLik)
 sumLik$grad_fn
-sumLik$backward(retain_graph=TRUE)
+sumLik$backward()
 a$grad
-
