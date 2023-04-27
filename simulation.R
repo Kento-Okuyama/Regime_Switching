@@ -40,5 +40,3 @@ for (i in 1:N){
 
 # save data as list
 (df <- list(state=state, yt=yt))
-
-plot(yt[6,], type="l")

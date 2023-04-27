@@ -31,11 +31,13 @@ adam <- function(theta, grad, t, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon
   v_hat <- v / (1 - beta2**t)
   
   # Update parameters using Adam update rule
-  theta <- theta - lr * m_hat / (sqrt(v_hat) + epsilon)
+  theta <- theta + lr * m_hat / (sqrt(v_hat) + epsilon)
   
   return(list(theta = theta, m = m, v = v))
 }
 
+# number of optimization steps
+nIter <- 10
 
 ###################################
 # s=1: non-drop out state
@@ -43,47 +45,49 @@ adam <- function(theta, grad, t, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon
 ###################################
 
 # E[eta_{i,t|t-1}^{s,s'}]
-jEta = torch_full(c(N, Nt, 2, 2), NaN)
+jEta <- torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t-1}^{s,s'}]
-jP = torch_full(c(N, Nt, 2, 2), NaN)
+jP <- torch_full(c(N, Nt, 2, 2), NaN)
 
 # E[eta_{i,t-1|t-1}^{s'}]
-mEta = torch_full(c(N, Nt+1, 2), NaN)
+mEta <- torch_full(c(N, Nt+1, 2), NaN)
 # Cov[eta_{i,t-1|t-1}^{s'}]
-mP = torch_full(c(N, Nt+1, 2), NaN)
+mP <- torch_full(c(N, Nt+1, 2), NaN)
 
 # v_{i,t}^{s,s'} 
-jV = torch_full(c(N, Nt, 2, 2), NaN)
+jV <- torch_full(c(N, Nt, 2, 2), NaN)
 # F_{i,t}^{s,s'}
-jF = torch_full(c(N, Nt, 2, 2), NaN)
+jF <- torch_full(c(N, Nt, 2, 2), NaN)
 
 # E[eta_{i,t|t}^{s,s'}]
-jEta2 = torch_full(c(N, Nt, 2, 2), NaN)
+jEta2 <- torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t}^{s,s'}]
-jP2 = torch_full(c(N, Nt, 2, 2), NaN)
+jP2 <- torch_full(c(N, Nt, 2, 2), NaN)
 
 # marginal probability
 # P(s=2 | y_{i,t})
-mPr = torch_zeros(N, Nt+1)
+mPr <- torch_zeros(N, Nt+1)
 
 # transition probability
 # P(s=2 | s', y_{i,t-1})
-tPr = torch_full(c(N, Nt, 2), NaN)
+tPr <- torch_full(c(N, Nt, 2), NaN)
 
 # joint probability
 # P(s, s' | y_{i,t-1})
-jPr = torch_full(c(N, Nt, 2, 2), NaN)
+jPr <- torch_full(c(N, Nt, 2, 2), NaN)
 
 # f(y_{i,t} | s, s', y_{i,t-1})
-jLik = torch_full(c(N, Nt, 2, 2), NaN)
+jLik <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(y_{i,t} | y_{i,t-1})
-mLik = torch_zeros(N, Nt)
+mLik <- torch_zeros(N, Nt)
 
 # P(s, s' | y_{i,t})
-jPr2 = torch_full(c(N, Nt, 2, 2), NaN)
+jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
 
-W = torch_full(c(N, Nt, 2, 2), NaN)
+W <- torch_full(c(N, Nt, 2, 2), NaN)
 
+sumLik <- torch_full(nIter, NaN)
+  
 ###################################
 
 # step 1: input {y_{it}}
@@ -125,7 +129,7 @@ beta <- torch_tensor(beta, requires_grad=TRUE)
 gamma <- torch_tensor(gamma, requires_grad=TRUE)
 delta <- torch_tensor(delta, requires_grad=TRUE)
 
-for (iter in 1:5){ 
+for (iter in 1:nIter){ 
   print(iter)
   # step 6
   for (i in 1:N){
@@ -199,12 +203,11 @@ for (iter in 1:5){
     }
   }
   
-  sumLik <- sum(mLik)
-  sumLik$grad_fn
-  sumLik$backward(retain_graph=TRUE)
-  print(sumLik)
+  sumLik[iter] <- sum(mLik)
+  sumLik[iter]$grad_fn
+  sumLik[iter]$backward(retain_graph=TRUE)
   grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
-  result <- adam(theta, grad, t)
+  result <- adam(theta, grad, iter)
   
   a <- torch_tensor(result$theta[1:2], requires_grad=TRUE)
   b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
@@ -215,13 +218,6 @@ for (iter in 1:5){
   gamma <- torch_tensor(result$theta[13:14], requires_grad=TRUE)
   delta <- torch_tensor(result$theta[15:16], requires_grad=TRUE)
   
-  # these lines give an error
-  # a$grad$zero_()
-  # b$grad$zero_()
-  # k$grad$zero_()
-  # Lmd$grad$zero_()
-  # alpha$grad$zero_()
-  # beta$grad$zero_()
-  # gamma$grad$zero_()
-  # delta$grad$zero_()
 }
+
+plot(sumLik, type='b', xlab='# of iterations', ylab='summed likelihood')
