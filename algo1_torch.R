@@ -125,10 +125,10 @@ beta <- torch_tensor(beta, requires_grad=TRUE)
 gamma <- torch_tensor(gamma, requires_grad=TRUE)
 delta <- torch_tensor(delta, requires_grad=TRUE)
 
-for (iter in 1:1){ 
+for (iter in 1:5){ 
+  print(iter)
   # step 6
   for (i in 1:N){
-    print(i)
     for (t in 1:Nt){
       
       # step 7 
@@ -206,14 +206,14 @@ for (iter in 1:1){
   grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
   result <- adam(theta, grad, t)
   
-  a <- result$theta[1:2]
-  b <- result$theta[3:4]
-  k <- result$theta[5:6]
-  Lmd <- result$theta[7:8]
-  alpha <- result$theta[9:10]
-  beta <- result$theta[11:12]
-  gamma <- result$theta[13:14]
-  delta <- result$theta[15:16]
+  a <- torch_tensor(result$theta[1:2], requires_grad=TRUE)
+  b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
+  k <- torch_tensor(result$theta[5:6], requires_grad=TRUE)
+  Lmd <- torch_tensor(result$theta[7:8], requires_grad=TRUE)
+  alpha <- torch_tensor(result$theta[9:10], requires_grad=TRUE)
+  beta <- torch_tensor(result$theta[11:12], requires_grad=TRUE)
+  gamma <- torch_tensor(result$theta[13:14], requires_grad=TRUE)
+  delta <- torch_tensor(result$theta[15:16], requires_grad=TRUE)
   
   # these lines give an error
   # a$grad$zero_()
