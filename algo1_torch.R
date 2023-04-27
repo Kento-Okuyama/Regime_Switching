@@ -7,7 +7,7 @@ set.seed(42)
 # Adam optimization 
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, t = 1, m = NULL, v = NULL) {
+adam <- function(theta, grad, t, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, m = NULL, v = NULL) {
   # theta: initial value of the parameters
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -16,17 +16,21 @@ adam <- function(theta, grad, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 
   # t: current iteration number
   # m, v: optional parameters for the first and second moment estimates, respectively
   
+  # initialize moment estimates
   if (is.null(m) || is.null(v)) {
     m <- rep(0, length(theta))
     v <- rep(0, length(theta))
   }
   
+  # update moment estimates
   m <- beta1 * m + (1 - beta1) * grad
-  v <- beta2 * v + (1 - beta2) * grad^2
+  v <- beta2 * v + (1 - beta2) * grad**2
   
-  m_hat <- m / (1 - beta1^t)
-  v_hat <- v / (1 - beta2^t)
+  # update bias corrected moment estimates
+  m_hat <- m / (1 - beta1**t)
+  v_hat <- v / (1 - beta2**t)
   
+  # Update parameters using Adam update rule
   theta <- theta - lr * m_hat / (sqrt(v_hat) + epsilon)
   
   return(list(theta = theta, m = m, v = v))
@@ -200,7 +204,7 @@ for (iter in 1:1){
   sumLik$backward(retain_graph=TRUE)
   print(sumLik)
   grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
-  result <- adam(theta, grad)
+  result <- adam(theta, grad, t)
   
   a <- result$theta[1:2]
   b <- result$theta[3:4]
@@ -210,4 +214,14 @@ for (iter in 1:1){
   beta <- result$theta[11:12]
   gamma <- result$theta[13:14]
   delta <- result$theta[15:16]
+  
+  # these lines give an error
+  # a$grad$zero_()
+  # b$grad$zero_()
+  # k$grad$zero_()
+  # Lmd$grad$zero_()
+  # alpha$grad$zero_()
+  # beta$grad$zero_()
+  # gamma$grad$zero_()
+  # delta$grad$zero_()
 }
