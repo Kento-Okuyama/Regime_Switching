@@ -133,7 +133,8 @@ for (iter in 1:nIter) {
   # P(s=2 | y_{i,t})
   mPr <- torch_zeros(N, Nt+1)
   
-  print(iter)
+  print(paste0('iteration step: ', as.numeric(iter)))
+  
   # step 6
   for (i in 1:N) {
     for (t in 1:Nt) {
@@ -211,8 +212,15 @@ for (iter in 1:nIter) {
   #####################################
   # stopping criteria may be inserted #
   #####################################
-  
-  sumLik[iter]$grad_fn
+  if (iter > 1) {
+    if (as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter-1])) { 
+      if (count > 3) {break} 
+      else {count <- count + 1}
+    else {count <- 0}
+  }
+  # sumLik[iter]$grad_fn
+
+  print(paste0('sum of likelihood = ', as.numeric(sumLik[iter])))
   sumLik[iter]$backward(retain_graph=TRUE)
   grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
   result <- adam(theta, grad, iter, m, v)
