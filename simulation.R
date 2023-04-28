@@ -2,9 +2,9 @@
 set.seed(42)
 
 # number of subjects
-N <- 10
+N <- 7
 # number of time responses
-Nt <- 3
+Nt <- 5
 
 state <- array(NA, c(N,Nt))
 

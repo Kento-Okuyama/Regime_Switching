@@ -7,13 +7,13 @@ set.seed(42)
 # Adam optimization 
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, t, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, m = NULL, v = NULL) {
+adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
   # theta: initial value of the parameters
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
   # beta1, beta2: hyperparameters controlling the exponential decay rates for the moment estimates
   # epsilon: small constant added to the denominator to avoid division by zero
-  # t: current iteration number
+  # iter: current iteration number
   # m, v: optional parameters for the first and second moment estimates, respectively
   
   # initialize moment estimates
@@ -27,8 +27,8 @@ adam <- function(theta, grad, t, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon
   v <- beta2 * v + (1 - beta2) * grad**2
   
   # update bias corrected moment estimates
-  m_hat <- m / (1 - beta1**t)
-  v_hat <- v / (1 - beta2**t)
+  m_hat <- m / (1 - beta1**iter)
+  v_hat <- v / (1 - beta2**iter)
   
   # Update parameters using Adam update rule
   theta <- theta + lr * m_hat / (sqrt(v_hat) + epsilon)
@@ -36,8 +36,10 @@ adam <- function(theta, grad, t, lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon
   return(list(theta = theta, m = m, v = v))
 }
 
-# number of optimization steps
+# max number of optimization steps
 nIter <- 10
+m <- NULL
+v <- NULL
 
 ###################################
 # s=1: non-drop out state
@@ -64,10 +66,6 @@ jEta2 <- torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t}^{s,s'}]
 jP2 <- torch_full(c(N, Nt, 2, 2), NaN)
 
-# marginal probability
-# P(s=2 | y_{i,t})
-mPr <- torch_zeros(N, Nt+1)
-
 # transition probability
 # P(s=2 | s', y_{i,t-1})
 tPr <- torch_full(c(N, Nt, 2), NaN)
@@ -78,8 +76,6 @@ jPr <- torch_full(c(N, Nt, 2, 2), NaN)
 
 # f(y_{i,t} | s, s', y_{i,t-1})
 jLik <- torch_full(c(N, Nt, 2, 2), NaN)
-# f(y_{i,t} | y_{i,t-1})
-mLik <- torch_zeros(N, Nt)
 
 # P(s, s' | y_{i,t})
 jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
@@ -105,7 +101,7 @@ theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, gamma, delta))
 
 # step 3: initialize latent variables
 # latent variable score at initial time point is assumed to follow N(0, 1e3) 
-for (s in 1:2){
+for (s in 1:2) {
   mEta[,1,s] <- rep(x=0, times=N)
   mP[,1,s] <- rep(x=1e3, times=N)
 }
@@ -129,11 +125,18 @@ beta <- torch_tensor(beta, requires_grad=TRUE)
 gamma <- torch_tensor(gamma, requires_grad=TRUE)
 delta <- torch_tensor(delta, requires_grad=TRUE)
 
-for (iter in 1:nIter){ 
+for (iter in 1:nIter) { 
+  # f(y_{i,t} | y_{i,t-1})
+  mLik <- torch_zeros(N, Nt)
+  
+  # marginal probability
+  # P(s=2 | y_{i,t})
+  mPr <- torch_zeros(N, Nt+1)
+  
   print(iter)
   # step 6
-  for (i in 1:N){
-    for (t in 1:Nt){
+  for (i in 1:N) {
+    for (t in 1:Nt) {
       
       # step 7 
       tPr[i,t,1] <- torch_sigmoid(alpha[1] + beta[1] * 0 + gamma[1] * yt[i,t] + delta[1] * 0 * yt[i,t])
@@ -146,8 +149,8 @@ for (iter in 1:nIter){
       jPr[i,t,2,2] <- torch_clone(tPr[i,t,2]) * torch_clone(mPr[i,t])
       
       # step 9 
-      for (s1 in 1:2){
-        for (s2 in 1:2){
+      for (s1 in 1:2) {
+        for (s2 in 1:2) {
           
           jEta[i,t,s1,s2] <- a[s1] + b[s1] * torch_clone(mEta[i,t,s2])
           jP[i,t,s1,s2] <- b[s1]**2 * torch_clone(mP[i,t,s2]) + Qs[s1]
@@ -165,32 +168,32 @@ for (iter in 1:nIter){
             torch_exp(-1/2 * torch_clone(jV[i,t,s1,s2])**2 / torch_clone(jF[i,t,s1,s2]))
           
           # step 11 
-          if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
+          if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)) {
             mLik[i,t] <- torch_clone(mLik[i,t]) + torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) }
         }
       }
       
-      for (s1 in 1:2){
-        for (s2 in 1:2){
+      for (s1 in 1:2) {
+        for (s2 in 1:2) {
           
-          if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)){
+          if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)) {
             jPr2[i,t,s1,s2] <- torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) / torch_clone(mLik[i,t]) }
           
-          if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,s1,s2]), FALSE)){
+          if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,s1,s2]), FALSE)) {
             mPr[i,t+1] <- torch_clone(mPr[i,t+1]) + torch_clone(jPr2[i,t,s1,s2]) }
         }
       }   
       
-      for (s1 in 1:2){
-        for (s2 in 1:2){
+      for (s1 in 1:2) {
+        for (s2 in 1:2) {
           
           # step 12
-          if (s1 == 1 & torch_allclose(torch_isnan(jPr2[i,t,1,s2]), FALSE)){
+          if (s1 == 1 & torch_allclose(torch_isnan(jPr2[i,t,1,s2]), FALSE)) {
             if (torch_allclose(mPr[i,t+1], 1)) { W[i,t,1,s2] <- max(torch_clone(jPr2[i,t,1,s2]), 1e-5) / 1e-5 }
             else { W[i,t,1,s2] <- torch_clone(jPr2[i,t,1,s2]) / (1-torch_clone(mPr[i,t+1])) }
           }
           
-          else if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,2,s2]), FALSE)){
+          else if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,2,s2]), FALSE)) {
             if (torch_allclose(mPr[i,t+1], 0)) { W[i,t,2,s2] <- max(torch_clone(jPr2[i,t,2,s2]), 1e-5) / 1e-5 }
             else { W[i,t,2,s2] <- torch_clone(jPr2[i,t,2,s2]) / torch_clone(mPr[i,t+1]) }
           }
@@ -204,10 +207,15 @@ for (iter in 1:nIter){
   }
   
   sumLik[iter] <- sum(mLik)
+  
+  #####################################
+  # stopping criteria may be inserted #
+  #####################################
+  
   sumLik[iter]$grad_fn
   sumLik[iter]$backward(retain_graph=TRUE)
   grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
-  result <- adam(theta, grad, iter)
+  result <- adam(theta, grad, iter, m, v)
   
   a <- torch_tensor(result$theta[1:2], requires_grad=TRUE)
   b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
@@ -218,6 +226,8 @@ for (iter in 1:nIter){
   gamma <- torch_tensor(result$theta[13:14], requires_grad=TRUE)
   delta <- torch_tensor(result$theta[15:16], requires_grad=TRUE)
   
+  m <- result$m 
+  v <- result$v
 }
 
 plot(sumLik, type='b', xlab='# of iterations', ylab='summed likelihood')
