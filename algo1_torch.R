@@ -37,9 +37,14 @@ adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999,
 }
 
 # max number of optimization steps
-nIter <- 10
+nIter <- 50
+# stopping criterion
+count <- 0
+
 m <- NULL
 v <- NULL
+
+
 
 ###################################
 # s=1: non-drop out state
@@ -209,13 +214,12 @@ for (iter in 1:nIter) {
   
   sumLik[iter] <- sum(mLik)
   
-  #####################################
-  # stopping criteria may be inserted #
-  #####################################
+  # stopping criterion
   if (iter > 1) {
-    if (as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter-1])) { 
-      if (count > 3) {break} 
+    if (as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter-(1+count)])) { 
+      if (count > 1) {break} 
       else {count <- count + 1}
+    }
     else {count <- 0}
   }
   # sumLik[iter]$grad_fn
@@ -238,4 +242,4 @@ for (iter in 1:nIter) {
   v <- result$v
 }
 
-plot(sumLik, type='b', xlab='# of iterations', ylab='summed likelihood')
+plot(sumLik[1:iter], type='b', xlab='# of iterations', ylab='sum of the likelihood')
