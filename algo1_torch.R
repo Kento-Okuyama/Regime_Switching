@@ -14,7 +14,7 @@ adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999,
   # beta1, beta2: hyperparameters controlling the exponential decay rates for the moment estimates
   # epsilon: small constant added to the denominator to avoid division by zero
   # iter: current iteration number
-  # m, v: the first and second moment estimates
+  # m, v: first and second moment estimates
   
   # initialize moment estimates
   if (is.null(m) || is.null(v)) {
@@ -81,7 +81,7 @@ jLik <- torch_full(c(N, Nt, 2, 2), NaN)
 # P(s, s' | y_{i,t})
 jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
 
-# W_{it}^{s,s'}
+# W_{i,t}^{s,s'}
 W <- torch_full(c(N, Nt, 2, 2), NaN)
 
 # f(Y | theta)
@@ -107,9 +107,6 @@ for (s in 1:2) {
   mP[,1,s] <- rep(x=1e3, times=N)
 }
 
-# initial drop out probability
-mPr[,1] <- 1e-2
-
 # step 4: initialize residual variances
 Qs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 Rs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
@@ -134,6 +131,9 @@ for (iter in 1:nIter) {
   # marginal probability
   # P(s=2 | y_{i,t})
   mPr <- torch_zeros(N, Nt+1)
+  
+  # initial drop out probability
+  mPr[,1] <- 1e-2
   
   print(paste0('optimization step: ', as.numeric(iter)))
   
@@ -232,8 +232,6 @@ for (iter in 1:nIter) {
   Lmd <- torch_tensor(result$theta[7:8], requires_grad=TRUE)
   alpha <- torch_tensor(result$theta[9:10], requires_grad=TRUE)
   beta <- torch_tensor(result$theta[11:12], requires_grad=TRUE)
-  
-  # update
   m <- result$m 
   v <- result$v
 }
