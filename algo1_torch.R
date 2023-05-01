@@ -44,8 +44,6 @@ count <- 0
 m <- NULL
 v <- NULL
 
-
-
 ###################################
 # s=1: non-drop out state
 # s=2: drop out state
@@ -138,7 +136,7 @@ for (iter in 1:nIter) {
   # P(s=2 | y_{i,t})
   mPr <- torch_zeros(N, Nt+1)
   
-  print(paste0('iteration step: ', as.numeric(iter)))
+  print(paste0('optimization step: ', as.numeric(iter)))
   
   # step 6
   for (i in 1:N) {
@@ -174,8 +172,7 @@ for (iter in 1:nIter) {
             torch_exp(-1/2 * torch_clone(jV[i,t,s1,s2])**2 / torch_clone(jF[i,t,s1,s2]))
           
           # step 11 
-          if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)) {
-            mLik[i,t] <- torch_clone(mLik[i,t]) + torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) }
+          mLik[i,t] <- torch_clone(mLik[i,t]) + torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2])
         }
       }
       
@@ -216,7 +213,7 @@ for (iter in 1:nIter) {
   
   # stopping criterion
   if (iter > 1) {
-    if (as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter-(1+count)])) { 
+    if ( as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter - (1+count)]) ) { 
       if (count > 1) {break} 
       else {count <- count + 1}
     }
@@ -242,4 +239,4 @@ for (iter in 1:nIter) {
   v <- result$v
 }
 
-plot(sumLik[1:iter], type='b', xlab='# of iterations', ylab='sum of the likelihood')
+plot(sumLik[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='sum likelihood in each optimization step')
