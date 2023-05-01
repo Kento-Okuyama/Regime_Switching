@@ -90,12 +90,12 @@ sumLik <- torch_full(nIter, NaN)
 # step 2: initialize set of parameters
 
 # define parameters
-a <- torch_randn(1)
-b <- torch_abs(torch_randn(1))
+a <- torch_randn(2)
+b <- torch_abs(torch_randn(2))
 k <- torch_randn(2)
 Lmd <- torch_randn(2)
-alpha <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
-beta <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
+alpha <- torch_abs(torch_normal(mean=0, std=1e-1, size=1))
+beta <- torch_abs(torch_normal(mean=0, std=1e-1, size=1))
 
 # with gradient tracking
 a <- torch_tensor(a, requires_grad=TRUE)
@@ -221,8 +221,8 @@ for (iter in 1:nIter) {
   b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
   k <- torch_tensor(result$theta[5:6], requires_grad=TRUE)
   Lmd <- torch_tensor(result$theta[7:8], requires_grad=TRUE)
-  alpha <- torch_tensor(result$theta[9], requires_grad=TRUE)
-  beta <- torch_tensor(result$theta[10], requires_grad=TRUE)
+  alpha <- torch_tensor(result$theta[9:9], requires_grad=TRUE)
+  beta <- torch_tensor(result$theta[10:10], requires_grad=TRUE)
   m <- result$m 
   v <- result$v
 }
