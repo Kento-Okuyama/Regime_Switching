@@ -4,7 +4,9 @@ library(torch)
 # for reproducibility
 set.seed(42)
 
-# Adam optimization 
+###################################
+# function for Adam optimization 
+###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
 adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
@@ -45,59 +47,65 @@ m <- NULL
 v <- NULL
 
 ###################################
-# s=1: non-drop out state
-# s=2: drop out state
+# s=1: non-drop out state 
+# s=2: drop out state      
 ###################################
 
+###################################
+# define variables
+###################################
 # E[eta_{i,t|t-1}^{s,s'}]
 jEta <- torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t-1}^{s,s'}]
 jP <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # E[eta_{i,t-1|t-1}^{s'}]
 mEta <- torch_full(c(N, Nt+1, 2), NaN)
 # Cov[eta_{i,t-1|t-1}^{s'}]
 mP <- torch_full(c(N, Nt+1, 2), NaN)
-
 # v_{i,t}^{s,s'} 
 jV <- torch_full(c(N, Nt, 2, 2), NaN)
 # F_{i,t}^{s,s'}
 jF <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # E[eta_{i,t|t}^{s,s'}]
 jEta2 <- torch_full(c(N, Nt, 2, 2), NaN)
 # Cov[eta_{i,t|t}^{s,s'}]
 jP2 <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # P(s=2 | s', y_{i,t-1})
 tPr <- torch_full(c(N, Nt, 2), NaN)
-
 # P(s, s' | y_{i,t-1})
 jPr <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # f(y_{i,t} | s, s', y_{i,t-1})
 jLik <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # P(s, s' | y_{i,t})
 jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # W_{i,t}^{s,s'}
 W <- torch_full(c(N, Nt, 2, 2), NaN)
-
 # f(Y | theta)
 sumLik <- torch_full(nIter, NaN)
   
 ###################################
-
+# Algorithm 1
+###################################
 # step 1: input {y_{it}}
 # step 2: initialize set of parameters
-a <- torch_randn(2)
-b <- torch_abs(torch_randn(2))
+
+# define parameters
+a <- torch_randn(1)
+b <- torch_abs(torch_randn(1))
 k <- torch_randn(2)
 Lmd <- torch_randn(2)
 alpha <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 beta <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 
+# with gradient tracking
+a <- torch_tensor(a, requires_grad=TRUE)
+b <- torch_tensor(b, requires_grad=TRUE)
+k <- torch_tensor(k, requires_grad=TRUE)
+Lmd <- torch_tensor(Lmd, requires_grad=TRUE)
+alpha <- torch_tensor(alpha, requires_grad=TRUE)
+beta <- torch_tensor(beta, requires_grad=TRUE)
+
+# vectorize parameters
 theta <- torch_cat(list(a, b, k, Lmd, alpha, beta))
 
 # step 3: initialize latent variables
@@ -111,31 +119,15 @@ for (s in 1:2) {
 Qs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 Rs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 
-# step 5: initialize marginal probability
-# mPr[, 0] <- 0 # no drop out at t=0
-
-# activate gradient tracking for each parameters
-a <- torch_tensor(a, requires_grad=TRUE)
-b <- torch_tensor(b, requires_grad=TRUE)
-k <- torch_tensor(k, requires_grad=TRUE)
-Lmd <- torch_tensor(Lmd, requires_grad=TRUE)
-alpha <- torch_tensor(alpha, requires_grad=TRUE)
-beta <- torch_tensor(beta, requires_grad=TRUE)
-gamma <- torch_tensor(gamma, requires_grad=TRUE)
-delta <- torch_tensor(delta, requires_grad=TRUE)
-
 for (iter in 1:nIter) { 
-  # marginal likelihood
   # f(y_{i,t} | y_{i,t-1})
   mLik <- torch_zeros(N, Nt)
   
-  # marginal probability
   # P(s=2 | y_{i,t})
   mPr <- torch_zeros(N, Nt+1)
   
-  # initial drop out probability
-  mPr[,1] <- 1e-2
-  
+  # step 5: initialize marginal probability
+  mPr[,1] <- 1e-8 # no drop out at t=0
   print(paste0('optimization step: ', as.numeric(iter)))
   
   # step 6
@@ -143,7 +135,7 @@ for (iter in 1:nIter) {
     for (t in 1:Nt) {
       
       # step 7 
-      tPr[i,t,1] <- torch_sigmoid(alpha[1] + beta[1] * yt[i,t])
+      tPr[i,t,1] <- torch_sigmoid(alpha + beta * yt[i,t])
       tPr[i,t,2] <- 1
       
       # step 8 
@@ -189,11 +181,11 @@ for (iter in 1:nIter) {
         for (s2 in 1:2) {
           # step 12
           if (s1 == 1) {
-            if (torch_allclose(mPr[i,t+1], 1)) { W[i,t,1,s2] <- max(torch_clone(jPr2[i,t,1,s2]), 1e-5) / 1e-5 }
+            if (torch_allclose(mPr[i,t+1], 1)) { W[i,t,1,s2] <- max(torch_clone(jPr2[i,t,1,s2]), 1e-8) / 1e-8 }
             else { W[i,t,1,s2] <- torch_clone(jPr2[i,t,1,s2]) / (1-torch_clone(mPr[i,t+1])) }
           }
           else if (s1 == 2) {
-            if (torch_allclose(mPr[i,t+1], 0)) { W[i,t,2,s2] <- max(torch_clone(jPr2[i,t,2,s2]), 1e-5) / 1e-5 }
+            if (torch_allclose(mPr[i,t+1], 0)) { W[i,t,2,s2] <- max(torch_clone(jPr2[i,t,2,s2]), 1e-8) / 1e-8 }
             else { W[i,t,2,s2] <- torch_clone(jPr2[i,t,2,s2]) / torch_clone(mPr[i,t+1]) }
           }
         }
@@ -221,7 +213,7 @@ for (iter in 1:nIter) {
   # backward propagation
   sumLik[iter]$backward(retain_graph=TRUE)
   # store gradients
-  grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
+  grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad))
   # run adam function definied above
   result <- adam(theta, grad, iter, m, v)
   # update parameters
@@ -229,8 +221,8 @@ for (iter in 1:nIter) {
   b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
   k <- torch_tensor(result$theta[5:6], requires_grad=TRUE)
   Lmd <- torch_tensor(result$theta[7:8], requires_grad=TRUE)
-  alpha <- torch_tensor(result$theta[9:10], requires_grad=TRUE)
-  beta <- torch_tensor(result$theta[11:12], requires_grad=TRUE)
+  alpha <- torch_tensor(result$theta[9], requires_grad=TRUE)
+  beta <- torch_tensor(result$theta[10], requires_grad=TRUE)
   m <- result$m 
   v <- result$v
 }
