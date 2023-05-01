@@ -1,5 +1,5 @@
+# install.packages("torch")
 library(torch)
-str(df)
 
 # for reproducibility
 set.seed(42)
@@ -114,6 +114,7 @@ Rs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
 # step 5: initialize marginal probability
 # mPr[, 0] <- 0 # no drop out at t=0
 
+# activate gradient tracking for each parameters
 a <- torch_tensor(a, requires_grad=TRUE)
 b <- torch_tensor(b, requires_grad=TRUE)
 k <- torch_tensor(k, requires_grad=TRUE)
@@ -177,54 +178,52 @@ for (iter in 1:nIter) {
       
       for (s1 in 1:2) {
         for (s2 in 1:2) {
-          
-          if (torch_allclose(torch_isnan(jLik[i,t,s1,s2]), FALSE)) {
-            jPr2[i,t,s1,s2] <- torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) / torch_clone(mLik[i,t]) }
-          
-          if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,s1,s2]), FALSE)) {
+          # step 11 
+          jPr2[i,t,s1,s2] <- torch_clone(jLik[i,t,s1,s2]) * torch_clone(jPr[i,t,s1,s2]) / torch_clone(mLik[i,t]) 
+          if (s1 == 2) {
             mPr[i,t+1] <- torch_clone(mPr[i,t+1]) + torch_clone(jPr2[i,t,s1,s2]) }
         }
       }   
       
       for (s1 in 1:2) {
         for (s2 in 1:2) {
-          
           # step 12
-          if (s1 == 1 & torch_allclose(torch_isnan(jPr2[i,t,1,s2]), FALSE)) {
+          if (s1 == 1) {
             if (torch_allclose(mPr[i,t+1], 1)) { W[i,t,1,s2] <- max(torch_clone(jPr2[i,t,1,s2]), 1e-5) / 1e-5 }
             else { W[i,t,1,s2] <- torch_clone(jPr2[i,t,1,s2]) / (1-torch_clone(mPr[i,t+1])) }
           }
-          
-          else if (s1 == 2 & torch_allclose(torch_isnan(jPr2[i,t,2,s2]), FALSE)) {
+          else if (s1 == 2) {
             if (torch_allclose(mPr[i,t+1], 0)) { W[i,t,2,s2] <- max(torch_clone(jPr2[i,t,2,s2]), 1e-5) / 1e-5 }
             else { W[i,t,2,s2] <- torch_clone(jPr2[i,t,2,s2]) / torch_clone(mPr[i,t+1]) }
           }
         }
-        
         # step 12 (continuation)
         mEta[i,t+1,s1] <- torch_sum( torch_clone(W[i,t,s1,]) * torch_clone(jEta2[i,t,s1,]))
         mP[i,t+1,s1] <- torch_sum( torch_clone(W[i,t,s1,]) * ( torch_clone(jP2[i,t,s1,]) + (torch_clone(mEta[i,t+1,s1]) - torch_clone(jEta2[i,t,s1,]))**2 ))
       }
     }
   }
-  
+  # store sum likelihood in each optimization step
   sumLik[iter] <- sum(mLik)
   
   # stopping criterion
   if (iter > 1) {
     if ( as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter - (1+count)]) ) { 
       if (count > 1) {break} 
-      else {count <- count + 1}
-    }
+      else {count <- count + 1} }
     else {count <- 0}
   }
-  # sumLik[iter]$grad_fn
-
-  print(paste0('sum of likelihood = ', as.numeric(sumLik[iter])))
-  sumLik[iter]$backward(retain_graph=TRUE)
-  grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
-  result <- adam(theta, grad, iter, m, v)
   
+  # sumLik[iter]$grad_fn
+  
+  print(paste0('sum of likelihood = ', as.numeric(sumLik[iter])))
+  
+  # backward propagation
+  sumLik[iter]$backward(retain_graph=TRUE)
+  # store gradients
+  grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, gamma$grad, delta$grad))
+  # run adam function definied above
+  result <- adam(theta, grad, iter, m, v)
   # update parameters
   a <- torch_tensor(result$theta[1:2], requires_grad=TRUE)
   b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
@@ -236,4 +235,5 @@ for (iter in 1:nIter) {
   v <- result$v
 }
 
+# plot optimization process w.r.t sum likelihood
 plot(sumLik[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='sum likelihood in each optimization step')
