@@ -247,5 +247,5 @@ for (init in 1:nInit){
 
 # plot optimization process w.r.t sum likelihood
 plot(sumLikBest[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='best initializaiton outcome')
-  
+print(thetaBest)  
 
