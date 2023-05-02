@@ -1,0 +1,13 @@
+> print(thetaBest)  
+torch_tensor
+ 0.4188
+ 1.7884
+ 0.4013
+ 0.4851
+-1.3643
+ 0.6856
+ 0.0260
+ 0.3456
+ 0.0177
+ 0.2353
+[ CPUFloatType{10} ][ grad_fn = <CatBackward0> ]

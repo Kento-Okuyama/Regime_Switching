@@ -38,8 +38,10 @@ adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999,
   return(list(theta = theta, m = m, v = v))
 }
 
+# number of parameter initialization
+nInit <- 5
 # max number of optimization steps
-nIter <- 15
+nIter <- 3
 # initialization of stopping criterion
 count <- 0
 # initialization for Adam optimization
@@ -89,8 +91,6 @@ thetaBest <- torch_full(10, NaN)
 ###################################
 # Algorithm 1
 ###################################
-
-nInit <- 5
 
 for (init in 1:nInit){
   print(paste0('Initialization step: ', init))
@@ -239,13 +239,13 @@ for (init in 1:nInit){
     v <- result$v
   }
   
-  if (as.numeric(sumLik[Nt]) > as.numeric(sumLikBest[Nt])) {
-    sumLikBest <- sumLik
+  if (as.numeric(sumLik[iter]) > as.numeric(torch_max(sumLikBest))) {
+    sumLikBest <- sumLik[torch_isnan(sumLik) == FALSE]
     thetaBest <- theta
   }
 } 
 
 # plot optimization process w.r.t sum likelihood
-plot(sumLik[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='sum likelihood in each optimization step')
+plot(sumLikBest[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='best initializaiton outcome')
   
 
