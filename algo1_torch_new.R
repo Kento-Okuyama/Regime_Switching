@@ -9,7 +9,7 @@ set.seed(42)
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
+adam <- function(theta, grad, iter, m, v, lr = 1e-1, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -206,8 +206,15 @@ for (init in 1:nInit){
         }
       }
     }
+    
+    if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) {
+      print(paste0('   sum of likelihood = ', as.numeric(sumLik[iter])))
+      iter <- max(1, iter - 1)
+      break
+    }
+    
     # store sum likelihood in each optimization step
-    sumLik[iter] <- sum(mLik)
+    sumLik[iter] <- torch_sum(mLik)
     
     # stopping criterion
     if (iter > 1) {
@@ -232,14 +239,17 @@ for (init in 1:nInit){
     result <- adam(theta, grad, iter, m, v)
     # update parameters
     theta <- result$theta
+    theta[11:12] <- torch_tensor(torch_maximum(torch_tensor(c(0,0)), theta[11:12]))
+    theta[13:14] <- torch_tensor(torch_maximum(torch_tensor(c(0,0)), theta[13:14]))
+                                 
     a <- torch_tensor(theta[1:2], requires_grad=TRUE)
     b <- torch_tensor(theta[3:4], requires_grad=TRUE)
     k <- torch_tensor(theta[5:6], requires_grad=TRUE)
     Lmd <- torch_tensor(theta[7:8], requires_grad=TRUE)
     alpha <- torch_tensor(theta[9:9], requires_grad=TRUE)
     beta <- torch_tensor(theta[10:10], requires_grad=TRUE)
-    Qs <- torch_tensor(torch_maximum(torch_tensor(c(0,0)), theta[11:12]), requires_grad=TRUE)
-    Rs <- torch_tensor(torch_maximum(torch_tensor(c(0,0)), theta[13:14]), requires_grad=TRUE)
+    Qs <- torch_tensor(theta[11:12], requires_grad=TRUE)
+    Rs <- torch_tensor(theta[13:14], requires_grad=TRUE)
     m <- result$m 
     v <- result$v
   }
