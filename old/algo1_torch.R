@@ -39,9 +39,9 @@ adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999,
 }
 
 # number of parameter initialization
-nInit <- 5
+nInit <- 3
 # max number of optimization steps
-nIter <- 3
+nIter <- 5
 # initialization of stopping criterion
 count <- 0
 # initialization for Adam optimization
@@ -85,9 +85,8 @@ W <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(Y | theta)
 sumLik <- torch_full(nIter, NaN)
 sumLikBest <- torch_full(nIter, -1e8)
-
 thetaBest <- torch_full(10, NaN)
-  
+
 ###################################
 # Algorithm 1
 ###################################
@@ -103,8 +102,8 @@ for (init in 1:nInit){
   b <- torch_abs(torch_randn(2))
   k <- torch_randn(2)
   Lmd <- torch_randn(2)
-  alpha <- torch_abs(torch_normal(mean=0, std=1e-1, size=1))
-  beta <- torch_abs(torch_normal(mean=0, std=1e-1, size=1))
+  alpha <- torch_normal(mean=0, std=1e-1, size=1)**2
+  beta <- torch_normal(mean=0, std=1e-1, size=1)**2
   
   # with gradient tracking
   a <- torch_tensor(a, requires_grad=TRUE)
@@ -229,12 +228,13 @@ for (init in 1:nInit){
     # run adam function definied above
     result <- adam(theta, grad, iter, m, v)
     # update parameters
-    a <- torch_tensor(result$theta[1:2], requires_grad=TRUE)
-    b <- torch_tensor(result$theta[3:4], requires_grad=TRUE)
-    k <- torch_tensor(result$theta[5:6], requires_grad=TRUE)
-    Lmd <- torch_tensor(result$theta[7:8], requires_grad=TRUE)
-    alpha <- torch_tensor(result$theta[9:9], requires_grad=TRUE)
-    beta <- torch_tensor(result$theta[10:10], requires_grad=TRUE)
+    theta <- result$theta
+    a <- torch_tensor(theta[1:2], requires_grad=TRUE)
+    b <- torch_tensor(theta[3:4], requires_grad=TRUE)
+    k <- torch_tensor(theta[5:6], requires_grad=TRUE)
+    Lmd <- torch_tensor(theta[7:8], requires_grad=TRUE)
+    alpha <- torch_tensor(theta[9:9], requires_grad=TRUE)
+    beta <- torch_tensor(theta[10:10], requires_grad=TRUE)
     m <- result$m 
     v <- result$v
   }
@@ -248,4 +248,3 @@ for (init in 1:nInit){
 # plot optimization process w.r.t sum likelihood
 plot(sumLikBest[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='best initializaiton outcome')
 print(thetaBest)  
-

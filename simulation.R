@@ -32,7 +32,11 @@ for (i in 1:N){
   yt[i,1] <- rnorm(n=1, mean=ytMean1, sd=ytSd1)
   for (t in 2:Nt){
     # (Y_{i,t} | S_{i,t} = S_{i,t-1}) = Y_{i,t-1} 
-    if (state[i,t] == state[i,t-1]) yt[i,t] <- yt[i,t-1] * log(t+1) / log(t)
+    if (state[i,t] == state[i,t-1]) {
+      if (state[i,t] == 1) {
+        yt[i,t] <- rnorm(n=1, mean= yt[i,t-1] * log(t+1) / log(t), sd=ytSd1) }
+      else yt[i,t] <- rnorm(n=1, mean= yt[i,t-1] * log(t+1) / log(t), sd=ytSd2)
+    }
     # (Y_{i,t} | S_{i,t} = 2) ~ N(ytMean2, ytSd2)
     else yt[i,t] <- rnorm(n=1, mean=ytMean2, sd=ytSd2) * log(t+1)
   }
