@@ -9,7 +9,7 @@ set.seed(42)
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
+adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -39,9 +39,9 @@ adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999,
 }
 
 # number of parameter initialization
-nInit <- 3
+nInit <- 1
 # max number of optimization steps
-nIter <- 5
+nIter <- 10
 # initialization of stopping criterion
 count <- 0
 # initialization for Adam optimization
@@ -91,7 +91,7 @@ thetaBest <- torch_full(14, NaN)
 # Algorithm 1
 ###################################
 
-for (init in 1:nInit){
+for (init in 1:nInit) {
   print(paste0('Initialization step: ', init))
   
   # step 1: input {y_{it}}
@@ -102,8 +102,8 @@ for (init in 1:nInit){
   b <- torch_abs(torch_randn(2))
   k <- torch_randn(2)
   Lmd <- torch_randn(2)
-  alpha <- torch_randn(1)
-  beta <- torch_randn(1)
+  alpha <- torch_normal(mean=0, std=1e-1, size=1)
+  beta <- torch_normal(mean=0, std=1e-1, size=1)
   
   # with gradient tracking
   a <- torch_tensor(a, requires_grad=TRUE)
@@ -201,70 +201,74 @@ for (init in 1:nInit){
         }
         
         # step 12 (continuation)
-        mEta[,t+1,s1] <- torch_sum(torch_clone(W[,t,s1,]) * torch_clone(jEta2[,t,s1,]), dim=2)
+        mEta[,t+1,s1] <- torch_sum( torch_clone(W[,t,s1,]) * torch_clone(jEta2[,t,s1,]), dim=2)
         mP[,t+1,s1] <- 
           torch_sum( torch_clone(W[,t,s1,]) 
-                     * (torch_clone(jP2[,t,s1,]) + 
-                          (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2)
-                          - torch_clone(jEta2[,t,s1,]))**2 ), dim=2)
+                     * ( torch_clone(jP2[,t,s1,]) + 
+                           (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2) 
+                            - torch_clone(jEta2[,t,s1,]))**2 ), dim=2)
       }
       
       
-    } # this line relates to the beginning of step 6
-
-    if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) {
+    } # this line relates to the beginnnig of step 6
+    
+    if (count < 3) {
+      if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) {
+        break
+        count <- 0
+        }
+      else {
+        # store sum likelihood in each optimization step
+        
+        sumLik[iter] <- torch_sum(mLik)
+        
+        if (as.numeric(sumLik[iter]) > as.numeric(torch_max(sumLikBest))) {
+          sumLikBest <- sumLik[torch_isnan(sumLik) == FALSE]
+          thetaBest <- theta
+        }
+        
+        # stopping criterion
+        if (iter > 1) {
+          if (as.numeric(sumLik[iter]) < as.numeric(sumLik[iter - (1 + count)])) {count <- count + 1} 
+          else {count <- 0} 
+        }
+      }
+      
+      if (as.numeric(sumLik[iter]) > as.numeric(torch_max(sumLikBest))) {
+        sumLikBest <- sumLik[torch_isnan(sumLik) == FALSE]
+        thetaBest <- theta
+      }
       print(paste0('   sum of likelihood = ', as.numeric(sumLik[iter])))
-      iter <- max(1, iter - 1)
+      
+      # backward propagation
+      sumLik[iter]$backward(retain_graph=TRUE)
+      # store gradients
+      grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, Qs$grad, Rs$grad))
+      # run adam function definied above
+      result <- adam(theta, grad, iter, m, v)
+      # update parameters
+      theta <- result$theta
+      theta[11:12] <- torch_tensor(max(torch_tensor(c(0,0)), theta[11:12]))
+      theta[13:14] <- torch_tensor(max(torch_tensor(c(0,0)), theta[13:14]))
+      a <- torch_tensor(theta[1:2], requires_grad=TRUE)
+      b <- torch_tensor(theta[3:4], requires_grad=TRUE)
+      k <- torch_tensor(theta[5:6], requires_grad=TRUE)
+      Lmd <- torch_tensor(theta[7:8], requires_grad=TRUE)
+      alpha <- torch_tensor(theta[9:9], requires_grad=TRUE)
+      beta <- torch_tensor(theta[10:10], requires_grad=TRUE)
+      Qs <- torch_tensor(theta[11:12], requires_grad=TRUE)
+      Rs <- torch_tensor(theta[13:14], requires_grad=TRUE)
+      m <- result$m 
+      v <- result$v
+    }
+    
+    else {
+      iter <- iter - 3
+      count <- 0
       break
     }
-    
-    # store sum likelihood in each optimization step
-    sumLik[iter] <- torch_sum(mLik)
-    
-    # stopping criterion
-    if (iter > 1) {
-      if ( as.numeric(sumLik[iter]) <= as.numeric(sumLik[iter - (1+count)]) ) { 
-        if (count >= 2) {
-          count <- 0
-          break
-        } 
-        else {count <- count + 1} }
-      else {count <- 0}
-    }
-    
-    # sumLik[iter]$grad_fn
-    
-    print(paste0('   sum of likelihood = ', as.numeric(sumLik[iter])))
-    
-    # backward propagation
-    sumLik[iter]$backward(retain_graph=TRUE)
-    # store gradients
-    grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, Qs$grad, Rs$grad))
-    # run adam function definied above
-    result <- adam(theta, grad, iter, m, v)
-    # update parameters
-    theta <- result$theta
-    theta[3:4] <- torch_tensor(max(torch_tensor(c(0,0)), theta[3:4]))
-    theta[7:8] <- torch_tensor(max(torch_tensor(c(0,0)), theta[7:8]))
-    theta[11:12] <- torch_tensor(max(torch_tensor(c(0,0)), theta[11:12]))
-    theta[13:14] <- torch_tensor(max(torch_tensor(c(0,0)), theta[13:14]))
-    a <- torch_tensor(theta[1:2], requires_grad=TRUE)
-    b <- torch_tensor(theta[3:4], requires_grad=TRUE)
-    k <- torch_tensor(theta[5:6], requires_grad=TRUE)
-    Lmd <- torch_tensor(theta[7:8], requires_grad=TRUE)
-    alpha <- torch_tensor(theta[9:9], requires_grad=TRUE)
-    beta <- torch_tensor(theta[10:10], requires_grad=TRUE)
-    Qs <- torch_tensor(theta[11:12], requires_grad=TRUE)
-    Rs <- torch_tensor(theta[13:14], requires_grad=TRUE)
-    m <- result$m 
-    v <- result$v
-  }
-  
-  if (as.numeric(sumLik[iter]) > as.numeric(torch_max(sumLikBest))) {
-    sumLikBest <- sumLik[torch_isnan(sumLik) == FALSE]
-    thetaBest <- theta
-  }
-} 
+  } # nIter
+} # nInit
 
 # plot optimization process w.r.t sum likelihood
 plot(sumLikBest[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='best initialization outcome')

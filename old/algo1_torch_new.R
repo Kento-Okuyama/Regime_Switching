@@ -9,7 +9,7 @@ set.seed(42)
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr = 1e-2, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
+adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -241,7 +241,7 @@ for (init in 1:nInit){
     theta <- result$theta
     theta[11:12] <- torch_tensor(torch_maximum(torch_tensor(c(0,0)), theta[11:12]))
     theta[13:14] <- torch_tensor(torch_maximum(torch_tensor(c(0,0)), theta[13:14]))
-                                 
+    
     a <- torch_tensor(theta[1:2], requires_grad=TRUE)
     b <- torch_tensor(theta[3:4], requires_grad=TRUE)
     k <- torch_tensor(theta[5:6], requires_grad=TRUE)
