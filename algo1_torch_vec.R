@@ -9,7 +9,7 @@ set.seed(42)
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr = 1e-2, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
+adam <- function(theta, grad, iter, m, v, lr = 1e-3, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -102,8 +102,8 @@ for (init in 1:nInit){
   b <- torch_abs(torch_randn(2))
   k <- torch_randn(2)
   Lmd <- torch_randn(2)
-  alpha <- torch_normal(mean=0, std=1e-1, size=1)**2
-  beta <- torch_normal(mean=0, std=1e-1, size=1)**2
+  alpha <- torch_randn(1)
+  beta <- torch_randn(1)
   
   # with gradient tracking
   a <- torch_tensor(a, requires_grad=TRUE)
@@ -121,8 +121,8 @@ for (init in 1:nInit){
   }
   
   # step 4: initialize residual variances
-  Qs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
-  Rs <- torch_abs(torch_normal(mean=0, std=1e-1, size=2))
+  Qs <- torch_normal(mean=0, std=1e-1, size=2)**2
+  Rs <- torch_normal(mean=0, std=1e-1, size=2)**2
   
   Qs <- torch_tensor(Qs, requires_grad=TRUE)
   Rs <- torch_tensor(Rs, requires_grad=TRUE)
@@ -201,16 +201,16 @@ for (init in 1:nInit){
         }
         
         # step 12 (continuation)
-        mEta[,t+1,s1] <- torch_sum( torch_clone(W[,t,s1,]) * torch_clone(jEta2[,t,s1,]), dim=2)
+        mEta[,t+1,s1] <- torch_sum(torch_clone(W[,t,s1,]) * torch_clone(jEta2[,t,s1,]), dim=2)
         mP[,t+1,s1] <- 
           torch_sum( torch_clone(W[,t,s1,]) 
-                     * ( torch_clone(jP2[,t,s1,]) + 
-                           (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2) 
-                            - torch_clone(jEta2[,t,s1,]))**2 ), dim=2)
+                     * (torch_clone(jP2[,t,s1,]) + 
+                          (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2)
+                          - torch_clone(jEta2[,t,s1,]))**2 ), dim=2)
       }
       
       
-    } # this line relates to the beginnnig of step 6
+    } # this line relates to the beginning of step 6
 
     if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) {
       print(paste0('   sum of likelihood = ', as.numeric(sumLik[iter])))
@@ -244,6 +244,8 @@ for (init in 1:nInit){
     result <- adam(theta, grad, iter, m, v)
     # update parameters
     theta <- result$theta
+    theta[3:4] <- torch_tensor(max(torch_tensor(c(0,0)), theta[3:4]))
+    theta[7:8] <- torch_tensor(max(torch_tensor(c(0,0)), theta[7:8]))
     theta[11:12] <- torch_tensor(max(torch_tensor(c(0,0)), theta[11:12]))
     theta[13:14] <- torch_tensor(max(torch_tensor(c(0,0)), theta[13:14]))
     a <- torch_tensor(theta[1:2], requires_grad=TRUE)
