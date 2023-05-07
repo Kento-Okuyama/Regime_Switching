@@ -1,19 +1,18 @@
 # install.packages("torch")
 library(torch)
-
-# for reproducibility
-set.seed(42)
+# install.packages("reticulate")
+library(reticulate)
 
 ###################################
 # function for Adam optimization 
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8) {
+adam <- function(theta, grad, iter, m, v, lr=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
-  # beta1, beta2: hyperparameters controlling the exponential decay rates for the moment estimates
+  # beta1, beta2: hyper-parameters controlling the exponential decay rates for the moment estimates
   # epsilon: small constant added to the denominator to avoid division by zero
   # iter: current iteration number
   # m, v: first and second moment estimates
@@ -39,9 +38,9 @@ adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsil
 }
 
 # number of parameter initialization
-nInit <- 1
+nInit <- 5
 # max number of optimization steps
-nIter <- 10
+nIter <- 50
 # initialization of stopping criterion
 count <- 0
 # initialization for Adam optimization
@@ -83,8 +82,8 @@ jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
 # W_{i,t}^{s,s'}
 W <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(Y | theta)
-sumLik <- torch_full(nIter, NaN)
-sumLikBest <- torch_full(nIter, -1e8)
+sumLik <- list()
+sumLikBest <- -1e-8
 thetaBest <- torch_full(14, NaN)
 
 ###################################
@@ -92,6 +91,13 @@ thetaBest <- torch_full(14, NaN)
 ###################################
 
 for (init in 1:nInit) {
+  
+  count <- 0
+  iter <- 1
+  
+  # for reproducibility
+  set.seed(init)
+  
   print(paste0('Initialization step: ', init))
   
   # step 1: input {y_{it}}
@@ -130,7 +136,8 @@ for (init in 1:nInit) {
   # vectorize parameters
   theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, Qs, Rs))
   
-  for (iter in 1:nIter) { 
+  while (count < 3) {
+  # for (iter in 1:nIter) { 
     # f(y_{i,t} | y_{i,t-1})
     mLik <- torch_zeros(N, Nt)
     
@@ -203,45 +210,47 @@ for (init in 1:nInit) {
         # step 12 (continuation)
         mEta[,t+1,s1] <- torch_sum( torch_clone(W[,t,s1,]) * torch_clone(jEta2[,t,s1,]), dim=2)
         mP[,t+1,s1] <- 
-          torch_sum( torch_clone(W[,t,s1,]) 
-                     * ( torch_clone(jP2[,t,s1,]) + 
-                           (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2) 
-                            - torch_clone(jEta2[,t,s1,]))**2 ), dim=2)
+          torch_sum(torch_clone(W[,t,s1,]) 
+                    * (torch_clone(jP2[,t,s1,]) 
+                       + (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2) 
+                          - torch_clone(jEta2[,t,s1,]))**2), dim=2)
       }
       
       
-    } # this line relates to the beginnnig of step 6
+    } # this line relates to the beginnig of step 6
     
     if (count < 3) {
-      if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) {
-        break
+      if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) { # is mLik has NaN values
         count <- 0
-        }
+        print('   optimization terminated: mLik has null values')
+        break
+      }
       else {
-        # store sum likelihood in each optimization step
+        # sum likelihood at each optimization step
+        sumLik[iter] <- as.numeric(torch_sum(mLik))
         
-        sumLik[iter] <- torch_sum(mLik)
-        
-        if (as.numeric(sumLik[iter]) > as.numeric(torch_max(sumLikBest))) {
-          sumLikBest <- sumLik[torch_isnan(sumLik) == FALSE]
+        if (sumLik[iter][[1]] > sumLikBest) { # if sumLik beats the best score
+          sumLikBest <- sumLik[iter]
           thetaBest <- theta
         }
         
         # stopping criterion
         if (iter > 1) {
-          if (as.numeric(sumLik[iter]) < as.numeric(sumLik[iter - (1 + count)])) {count <- count + 1} 
+          # add count if sumLik does not beat the best score 
+          if (sumLik[iter][[1]] < sumLikBest) {
+            count <- count + 1 }
           else {count <- 0} 
         }
       }
       
-      if (as.numeric(sumLik[iter]) > as.numeric(torch_max(sumLikBest))) {
-        sumLikBest <- sumLik[torch_isnan(sumLik) == FALSE]
-        thetaBest <- theta
-      }
-      print(paste0('   sum of likelihood = ', as.numeric(sumLik[iter])))
-      
+      if (count==3) {
+        print('   optimizaiton terminated: stopping criterion is met')
+        count <- 0
+        break }
+      print(paste0('   sum of likelihood = ', sumLik[iter]))
+
       # backward propagation
-      sumLik[iter]$backward(retain_graph=TRUE)
+      torch_sum(mLik)$backward(retain_graph=TRUE)
       # store gradients
       grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, Qs$grad, Rs$grad))
       # run adam function definied above
@@ -261,15 +270,14 @@ for (init in 1:nInit) {
       m <- result$m 
       v <- result$v
     }
-    
-    else {
-      iter <- iter - 3
-      count <- 0
-      break
-    }
+    iter <- iter + 1
   } # nIter
 } # nInit
 
 # plot optimization process w.r.t sum likelihood
-plot(sumLikBest[1:iter], type='b', xlab='optimization step', ylab='sum of the likelihood', main='best initialization outcome')
-print(thetaBest)  
+print(paste0('Best sum likelihood = ', sumLikBest[[1]]))
+thetaBest <- as.data.frame(t(as.matrix(thetaBest)))
+colnames(thetaBest) <- c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha', 'beta', 'Qs1', 'Qs2', 'Rs1', 'Rs2')
+print('Optimal parameters found:')
+print(paste0(colnames(thetaBest), ": ", as.matrix(thetaBest)))
+
