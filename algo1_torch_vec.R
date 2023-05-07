@@ -41,8 +41,6 @@ adam <- function(theta, grad, iter, m, v, lr=1e-3, beta1=0.9, beta2=0.999, epsil
 nInit <- 5
 # max number of optimization steps
 nIter <- 50
-# initialization of stopping criterion
-count <- 0
 # initialization for Adam optimization
 m <- NULL
 v <- NULL
@@ -92,8 +90,10 @@ thetaBest <- torch_full(14, NaN)
 
 for (init in 1:nInit) {
   
-  count <- 0
+  # initialization of optimization step counter
   iter <- 1
+  # initialization of stopping criterion
+  count <- 0
   
   # for reproducibility
   set.seed(init)
