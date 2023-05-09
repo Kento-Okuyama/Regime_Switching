@@ -83,6 +83,8 @@ W <- torch_full(c(N, Nt, 2, 2), NaN)
 sumLik <- list()
 sumLikBest <- -1e-8
 thetaBest <- torch_full(14, NaN)
+sumLikBestNow <- -1e-8
+thetaBestNow <- torch_full(14, NaN)
 
 ###################################
 # Algorithm 1
@@ -179,7 +181,7 @@ for (init in 1:nInit) {
           
           # step 10 
           jLik[,t,s1,s2] <- (2*pi)**(-1/2) * (torch_clone(jF[,t,s1,s2]))**(-1/2) *
-            torch_exp(-1/2 * torch_clone(jV[,t,s1,s2])**2 / torch_clone(jF[,t,s1,s2]))
+            torch_exp(-1/2 * torch_clone(jV[,t,s1,s2])**2 / torch_clone(jF[,t,s1,s2])) + 1e-8
           
           # step 11 
           mLik[,t] <- torch_clone(mLik[,t]) + torch_clone(jLik[,t,s1,s2]) * torch_clone(jPr[,t,s1,s2])
@@ -189,7 +191,7 @@ for (init in 1:nInit) {
       for (s1 in 1:2) {
         for (s2 in 1:2) {
           # step 11 
-          jPr2[,t,s1,s2] <- torch_clone(jLik[,t,s1,s2]) * torch_clone(jPr[,t,s1,s2]) / torch_clone(mLik[,t]) 
+          jPr2[,t,s1,s2] <- torch_clone(jLik[,t,s1,s2]) * torch_clone(jPr[,t,s1,s2]) / torch_clone(mLik[,t])
           if (s1 == 2) {
             mPr[,t+1] <- torch_clone(mPr[,t+1]) + torch_clone(jPr2[,t,s1,s2]) }
         }
@@ -199,24 +201,17 @@ for (init in 1:nInit) {
         for (s2 in 1:2) {
           # step 12
           if (s1 == 1) {
-            if (torch_allclose(mPr[,t+1], 1)) { W[,t,1,s2] <- (torch_clone(jPr2[,t,1,s2]) + 1e-8) / 1e-8 }
-            else { W[,t,1,s2] <- torch_clone(jPr2[,t,1,s2]) / (1-torch_clone(mPr[,t+1])) }
-          }
+            W[,t,1,s2] <- (torch_clone(jPr2[,t,1,s2]) + 1e-8) / (1 - torch_clone(mPr[,t+1]) + 1e-8) }
           else if (s1 == 2) {
-            if (torch_allclose(mPr[,t+1], 0)) { W[,t,2,s2] <- (torch_clone(jPr2[,t,2,s2]) + 1e-8) / 1e-8 }
-            else { W[,t,2,s2] <- torch_clone(jPr2[,t,2,s2]) / torch_clone(mPr[,t+1]) }
-          }
+            W[,t,2,s2] <- (torch_clone(jPr2[,t,2,s2]) + 1e-8) / (torch_clone(mPr[,t+1]) + 1e-8) }
         }
-        
-        # step 12 (continuation)
-        mEta[,t+1,s1] <- torch_sum( torch_clone(W[,t,s1,]) * torch_clone(jEta2[,t,s1,]), dim=2)
-        mP[,t+1,s1] <- 
-          torch_sum(torch_clone(W[,t,s1,]) 
-                    * (torch_clone(jP2[,t,s1,]) 
-                       + (torch_transpose(torch_vstack(list(torch_clone(mEta[,t+1,s1]), torch_clone(mEta[,t+1,s1]))), 1, 2) 
-                          - torch_clone(jEta2[,t,s1,]))**2), dim=2)
       }
-      
+      W[,t,,][W[,t,,] == Inf] <- 1e8
+
+      # step 12 (continuation)
+      mEta[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * torch_clone(jEta2[,t,,]), dim=3)
+      mEtaVec <- torch_cat(list(torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3), torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3)), dim=3)
+      mP[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * ( torch_clone(jP2[,t,,]) + (mEtaVec - torch_clone(jEta2[,t,,]))**2 ), dim=3)
       
     } # this line relates to the beginnig of step 6
     
@@ -239,9 +234,13 @@ for (init in 1:nInit) {
         # stopping criterion
         if (iter > 1) {
           # add count if sumLik does not beat the best score 
-          if (sumLik[iter][[1]] < sumLikBest) {
+          if (sumLik[iter][[1]] < sumLikBestNow) {
             count <- count + 1 }
-          else {count <- 0} 
+          else {
+            sumLikBestNow <- sumLik[iter]
+            thetaBestNow <- theta
+            count <- 0
+          } 
         }
       }
       
@@ -274,6 +273,8 @@ for (init in 1:nInit) {
     }
     iter <- iter + 1
   } # nIter
+  sumLikBestNow <- -1e-8
+  thetaBestNow <- torch_full(14, NaN)
 } # nInit
 
 # return the best result

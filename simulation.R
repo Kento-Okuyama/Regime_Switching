@@ -19,8 +19,8 @@ for (i in 1:N){
   }
 }
 
-ytMean1 <- 1
-ytMean2 <- 5
+ytMean1 <- -2
+ytMean2 <- 2
 
 ytSd1 <- 1e-2
 ytSd2 <- 1e-2
