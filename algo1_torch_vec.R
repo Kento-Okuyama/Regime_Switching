@@ -273,8 +273,10 @@ for (init in 1:nInit) {
     }
     iter <- iter + 1
   } # nIter
+  
   sumLikBestNow <- -1e-8
   thetaBestNow <- torch_full(14, NaN)
+
 } # nInit
 
 # return the best result
