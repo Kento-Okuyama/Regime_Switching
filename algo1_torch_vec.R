@@ -8,7 +8,7 @@ library(reticulate)
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8) {
+adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -90,7 +90,7 @@ thetaBest <- torch_full(14, NaN)
 
 for (init in 1:nInit) {
   
-  # initialization of optimization step counter
+  # initialization of optimization step count
   iter <- 1
   # initialization of stopping criterion
   count <- 0
@@ -105,7 +105,7 @@ for (init in 1:nInit) {
   
   # define parameters
   a <- torch_randn(2)
-  b <- torch_abs(torch_randn(2))
+  b <- torch_randn(2)
   k <- torch_randn(2)
   Lmd <- torch_randn(2)
   alpha <- torch_normal(mean=0, std=1e-1, size=1)
@@ -137,7 +137,8 @@ for (init in 1:nInit) {
   theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, Qs, Rs))
   
   while (count < 3) {
-  # for (iter in 1:nIter) { 
+  # for (iter in 1:nIter) {
+    
     # f(y_{i,t} | y_{i,t-1})
     mLik <- torch_zeros(N, Nt)
     
@@ -223,6 +224,7 @@ for (init in 1:nInit) {
       if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) { # is mLik has NaN values
         count <- 0
         print('   optimization terminated: mLik has null values')
+        print(paste0(c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha', 'beta', 'Qs1', 'Qs2', 'Rs1', 'Rs2'), ': ', as.matrix(theta)))
         break
       }
       else {
@@ -274,7 +276,7 @@ for (init in 1:nInit) {
   } # nIter
 } # nInit
 
-# plot optimization process w.r.t sum likelihood
+# return the best result
 print(paste0('Best sum likelihood = ', sumLikBest[[1]]))
 thetaBest <- as.data.frame(t(as.matrix(thetaBest)))
 colnames(thetaBest) <- c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha', 'beta', 'Qs1', 'Qs2', 'Rs1', 'Rs2')
