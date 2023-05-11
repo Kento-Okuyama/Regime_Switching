@@ -3,12 +3,14 @@ library(torch)
 # install.packages("reticulate")
 library(reticulate)
 
+epsilon <- 1e-30
+
 ###################################
 # function for Adam optimization 
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8) {
+adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-30) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -22,6 +24,11 @@ adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsil
     m <- rep(0, length(theta))
     v <- rep(0, length(theta))
   }
+  if (as.numeric(torch_sum(torch_isnan(m))) > 0) {
+    m[torch_isnan(m)] <- 0 }
+  
+  if (as.numeric(torch_sum(torch_isnan(v))) > 0) {
+    v[torch_isnan(v)] <- 0 }
   
   # update moment estimates
   m <- beta1 * m + (1 - beta1) * grad
@@ -32,15 +39,20 @@ adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsil
   v_hat <- v / (1 - beta2**iter)
   
   # Update parameters using Adam update rule
-  theta <- theta + lr * m_hat / (sqrt(v_hat) + epsilon)
+  
+  compared <- (sqrt(v_hat) + epsilon) > epsilon
+  denom <- torch_full(14, epsilon)
+  if (as.numeric(torch_sum(compared)) > 0) {
+    denom[compared] <- (sqrt(v_hat) + epsilon)[compared] }
+  theta <- theta + lr * m_hat / denom
   
   return(list(theta=theta, m=m, v=v))
 }
 
 # number of parameter initialization
-nInit <- 5
+nInit <- 1
 # max number of optimization steps
-nIter <- 50
+nIter <- 10
 # initialization for Adam optimization
 m <- NULL
 v <- NULL
@@ -71,6 +83,7 @@ jEta2 <- torch_full(c(N, Nt, 2, 2), NaN)
 jP2 <- torch_full(c(N, Nt, 2, 2), NaN)
 # P(s=2 | s', y_{i,t-1})
 tPr <- torch_full(c(N, Nt, 2), NaN)
+tPr[,,2] <- 1
 # P(s, s' | y_{i,t-1})
 jPr <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(y_{i,t} | s, s', y_{i,t-1})
@@ -81,9 +94,9 @@ jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
 W <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(Y | theta)
 sumLik <- list()
-sumLikBest <- -1e-8
+sumLikBest <- -1e8
 thetaBest <- torch_full(14, NaN)
-sumLikBestNow <- -1e-8
+sumLikBestNow <- -1e8
 thetaBestNow <- torch_full(14, NaN)
 
 ###################################
@@ -96,6 +109,10 @@ for (init in 1:nInit) {
   iter <- 1
   # initialization of stopping criterion
   count <- 0
+  
+  # first and second moment estimates
+  m <- NULL
+  v <- NULL
   
   # for reproducibility
   set.seed(init)
@@ -138,8 +155,8 @@ for (init in 1:nInit) {
   # vectorize parameters
   theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, Qs, Rs))
   
-  while (count < 3) {
-  # for (iter in 1:nIter) {
+  # while (count < 3) {
+  for (iter in 1:nIter) {
     
     # f(y_{i,t} | y_{i,t-1})
     mLik <- torch_zeros(N, Nt)
@@ -148,15 +165,13 @@ for (init in 1:nInit) {
     mPr <- torch_zeros(N, Nt+1)
     
     # step 5: initialize marginal probability
-    mPr[,1] <- 1e-8 # no drop out at t=0
+    mPr[,1] <- epsilon # no drop out at t=0
     print(paste0('   optimization step: ', as.numeric(iter)))
-    
     # step 6
     for (t in 1:Nt) {
       
       # step 7 
       tPr[,t,1] <- torch_sigmoid(alpha + beta * yt[,t])
-      tPr[,t,2] <- 1
       
       # step 8 
       jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t]))
@@ -180,9 +195,14 @@ for (init in 1:nInit) {
           jP2[,t,s1,s2] <- torch_clone(jP[,t,s1,s2]) - torch_clone(Ks) * Lmd[s1] * torch_clone(jP[,t,s1,s2])
           
           # step 10 
-          jLik[,t,s1,s2] <- (2*pi)**(-1/2) * (torch_clone(jF[,t,s1,s2]))**(-1/2) *
-            torch_exp(-1/2 * torch_clone(jV[,t,s1,s2])**2 / torch_clone(jF[,t,s1,s2])) + 1e-8
-          
+          compared <- ((2*pi)**(-1/2) * (torch_clone(jF[,t,s1,s2]))**(-1/2) *
+            torch_exp(-1/2 * torch_clone(jV[,t,s1,s2])**2 / torch_clone(jF[,t,s1,s2]))) > epsilon
+          jLik[,t,s1,s2] <- torch_full(N, epsilon)
+          if (as.numeric(torch_sum(compared)) > 0) {
+            jLik[,t,s1,s2][compared] <- ((2*pi)**(-1/2) * (torch_clone(jF[,t,s1,s2]))**(-1/2) *
+              torch_exp(-1/2 * torch_clone(jV[,t,s1,s2])**2 / torch_clone(jF[,t,s1,s2])))[compared]  
+          }
+
           # step 11 
           mLik[,t] <- torch_clone(mLik[,t]) + torch_clone(jLik[,t,s1,s2]) * torch_clone(jPr[,t,s1,s2])
         }
@@ -201,25 +221,31 @@ for (init in 1:nInit) {
         for (s2 in 1:2) {
           # step 12
           if (s1 == 1) {
-            W[,t,1,s2] <- (torch_clone(jPr2[,t,1,s2]) + 1e-8) / (1 - torch_clone(mPr[,t+1]) + 1e-8) }
+            compared <- 1 - torch_clone(mPr[,t+1]) > epsilon
+            denom <- torch_full(N, epsilon)
+            if (as.numeric(torch_sum(compared)) > 0) {
+              denom[compared] <- (1 - torch_clone(mPr[,t+1]))[compared] }
+            W[,t,1,s2] <- torch_clone(jPr2[,t,1,s2]) / denom }
+          
           else if (s1 == 2) {
-            W[,t,2,s2] <- (torch_clone(jPr2[,t,2,s2]) + 1e-8) / (torch_clone(mPr[,t+1]) + 1e-8) }
+            compared <- torch_clone(mPr[,t+1]) > epsilon
+            denom <- torch_full(N, epsilon)
+            if (as.numeric(torch_sum(compared)) > 0) {
+              denom[compared] <- torch_clone(mPr[,t+1])[compared] }
+            W[,t,2,s2] <- torch_clone(jPr2[,t,2,s2]) / denom }
         }
       }
-      W[,t,,][W[,t,,] == Inf] <- 1e8
-
+      
       # step 12 (continuation)
       mEta[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * torch_clone(jEta2[,t,,]), dim=3)
       mEtaVec <- torch_cat(list(torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3), torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3)), dim=3)
       mP[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * ( torch_clone(jP2[,t,,]) + (mEtaVec - torch_clone(jEta2[,t,,]))**2 ), dim=3)
       
-    } # this line relates to the beginnig of step 6
+    } # this line relates to the beginning of step 6
     
     if (count < 3) {
       if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) { # is mLik has NaN values
-        count <- 0
         print('   optimization terminated: mLik has null values')
-        print(paste0(c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha', 'beta', 'Qs1', 'Qs2', 'Rs1', 'Rs2'), ': ', as.matrix(theta)))
         break
       }
       else {
@@ -233,8 +259,9 @@ for (init in 1:nInit) {
         
         # stopping criterion
         if (iter > 1) {
+          crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]])
           # add count if sumLik does not beat the best score 
-          if (sumLik[iter][[1]] < sumLikBestNow) {
+          if (crit < 1e-1) {
             count <- count + 1 }
           else {
             sumLikBestNow <- sumLik[iter]
@@ -246,7 +273,6 @@ for (init in 1:nInit) {
       
       if (count==3) {
         print('   optimizaiton terminated: stopping criterion is met')
-        count <- 0
         break }
       print(paste0('   sum of likelihood = ', sumLik[iter]))
 
@@ -254,7 +280,13 @@ for (init in 1:nInit) {
       torch_sum(mLik)$backward(retain_graph=TRUE)
       # store gradients
       grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, Qs$grad, Rs$grad))
-      # run adam function definied above
+      
+      if (as.numeric(torch_sum(torch_isnan(grad))) > 0) {
+        print(as.numeric(torch_sum(mLik)))
+        print('   optimizaiton terminated: gradient has nan values')
+        break }
+      
+      # run adam function detorch finied above
       result <- adam(theta, grad, iter, m, v)
       # update parameters
       theta <- result$theta
@@ -274,7 +306,7 @@ for (init in 1:nInit) {
     iter <- iter + 1
   } # nIter
   
-  sumLikBestNow <- -1e-8
+  sumLikBestNow <- -1e8
   thetaBestNow <- torch_full(14, NaN)
 
 } # nInit
@@ -285,4 +317,3 @@ thetaBest <- as.data.frame(t(as.matrix(thetaBest)))
 colnames(thetaBest) <- c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha', 'beta', 'Qs1', 'Qs2', 'Rs1', 'Rs2')
 print('Optimal parameters found:')
 print(paste0(colnames(thetaBest), ": ", as.matrix(thetaBest)))
-
