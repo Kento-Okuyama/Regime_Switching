@@ -4,13 +4,14 @@ library(torch)
 library(reticulate)
 
 epsilon <- 1e-30
+nparams <- 15
 
 ###################################
 # function for Adam optimization 
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-30) {
+adam <- function(theta, grad, iter, m, v, lr=3e-2, beta1=0.9, beta2=0.999, epsilon=1e-30) {
   # theta: parameters values
   # grad: gradient of the objective function with respect to the parameters at the current iteration
   # lr: learning rate
@@ -41,7 +42,7 @@ adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsil
   # Update parameters using Adam update rule
   
   compared <- (sqrt(v_hat) + epsilon) > epsilon
-  denom <- torch_full(14, epsilon)
+  denom <- torch_full(nparams, epsilon)
   if (as.numeric(torch_sum(compared)) > 0) {
     denom[compared] <- (sqrt(v_hat) + epsilon)[compared] }
   theta <- theta + lr * m_hat / denom
@@ -50,7 +51,7 @@ adam <- function(theta, grad, iter, m, v, lr=1e-2, beta1=0.9, beta2=0.999, epsil
 }
 
 # number of parameter initialization
-nInit <- 1
+nInit <- 5
 # max number of optimization steps
 nIter <- 10
 # initialization for Adam optimization
@@ -83,7 +84,6 @@ jEta2 <- torch_full(c(N, Nt, 2, 2), NaN)
 jP2 <- torch_full(c(N, Nt, 2, 2), NaN)
 # P(s=2 | s', y_{i,t-1})
 tPr <- torch_full(c(N, Nt, 2), NaN)
-tPr[,,2] <- 1
 # P(s, s' | y_{i,t-1})
 jPr <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(y_{i,t} | s, s', y_{i,t-1})
@@ -96,10 +96,14 @@ jPr2 <- torch_full(c(N, Nt, 2, 2), NaN)
 W <- torch_full(c(N, Nt, 2, 2), NaN)
 # f(Y | theta)
 sumLik <- list()
-sumLikBest <- -1e8
-thetaBest <- torch_full(14, NaN)
-sumLikBestNow <- -1e8
-thetaBestNow <- torch_full(14, NaN)
+sumLikBest <- epsilon
+
+thetaBest <- torch_full(nparams, NaN)
+sumLikBestNow <- epsilon
+thetaBestNow <- torch_full(nparams, NaN)
+ythBest <-  torch_full(c(N, Nt), NaN)
+mPrBest <-  torch_full(c(N, Nt), NaN)
+
 
 ###################################
 # Algorithm 1
@@ -129,8 +133,8 @@ for (init in 1:nInit) {
   b <- torch_randn(2)
   k <- torch_randn(2)
   Lmd <- torch_randn(2)
-  alpha <- torch_normal(mean=0, std=1e-1, size=1)
-  beta <- torch_normal(mean=0, std=1e-1, size=1)
+  alpha <- torch_randn(2)
+  beta <- torch_randn(1)
   
   # with gradient tracking
   a <- torch_tensor(a, requires_grad=TRUE)
@@ -148,23 +152,32 @@ for (init in 1:nInit) {
   }
   
   # step 4: initialize residual variances
-  Qs <- torch_normal(mean=0, std=1e-1, size=2)**2
-  Rs <- torch_normal(mean=0, std=1e-1, size=2)**2
+  Q <- torch_normal(mean=0, std=1e-1, size=2)**2
+  R <- torch_normal(mean=0, std=1e-1, size=2)**2
   
-  Qs <- torch_tensor(Qs, requires_grad=TRUE)
-  Rs <- torch_tensor(Rs, requires_grad=TRUE)
+  Q <- torch_tensor(Q, requires_grad=TRUE)
+  R <- torch_tensor(R, requires_grad=TRUE)
   
   # vectorize parameters
-  theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, Qs, Rs))
+  theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, Q, R))
   
-  # while (count < 3) {
-  for (iter in 1:nIter) {
+  while (count < 3) {
+  # for (iter in 1:nIter) {
+    
+    # joint one-step ahead forecast
+    jyth <- torch_full(c(N, Nt, 2, 2), NaN)
+    # one-step ahead forecast
+    yth <- torch_full(c(N, Nt), NaN)
     
     # P(s=2 | y_{i,t})
     mPr <- torch_zeros(N, Nt+1)
     
+    # fixed prob of switching back
+    tPr[,,2] <- torch_sigmoid(alpha[2])
+    
     # step 5: initialize marginal probability
     mPr[,1] <- epsilon # no drop out at t=0
+    
     print(paste0('   optimization step: ', as.numeric(iter)))
     # step 6
     for (t in 1:Nt) {
@@ -174,10 +187,12 @@ for (init in 1:nInit) {
         for (s2 in 1:2) {
           
           jEta[,t,s1,s2] <- a[s1] + b[s1] * torch_clone(mEta[,t,s2])
-          jP[,t,s1,s2] <- b[s1]**2 * torch_clone(mP[,t,s2]) + Qs[s1]
+          jP[,t,s1,s2] <- b[s1]**2 * torch_clone(mP[,t,s2]) + Q[s1]
           
+          jyth[,t,s1,s2] <- k[s1] + Lmd[s1] * torch_clone(jEta[,t,s1,s2])
           jV[,t,s1,s2] <- yt[,t] - (k[s1] + Lmd[s1] * torch_clone(jEta[,t,s1,s2]))
-          jF[,t,s1,s2] <- Lmd[s1]**2 * torch_clone(jP[,t,s1,s2]) + Rs[s1]
+          
+          jF[,t,s1,s2] <- Lmd[s1]**2 * torch_clone(jP[,t,s1,s2]) + R[s1]
           
           Ks <- torch_clone(jP[,t,s1,s2]) * Lmd[s1] / torch_clone(jF[,t,s1,s2])
           
@@ -196,13 +211,15 @@ for (init in 1:nInit) {
       }
       
       # step 7 
-      tPr[,t,1] <- torch_sigmoid(alpha + beta * yt[,t])
+      tPr[,t,1] <- torch_sigmoid(alpha[1] + beta * yt[,t])
       
       # step 8 
       jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t]))
       jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
       jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
       jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
+      
+      yth[,t] <- torch_sum(jyth[,t,,] * jPr[,t,,])
       
       # step 11 
       mLik[,t] <- torch_sum(torch_clone(jLik[,t,,]) * torch_clone(jPr[,t,,]))
@@ -254,13 +271,15 @@ for (init in 1:nInit) {
         if (sumLik[iter][[1]] > sumLikBest) { # if sumLik beats the best score
           sumLikBest <- sumLik[iter]
           thetaBest <- theta
+          ythBest <- yth
+          mPrBest <- mPr[,2:Nt]
         }
         
         # stopping criterion
         if (iter > 1) {
           crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]])
           # add count if sumLik does not beat the best score 
-          if (crit < 1e-1) {
+          if (crit < 1e-2) {
             count <- count + 1 }
           else {
             sumLikBestNow <- sumLik[iter]
@@ -278,7 +297,7 @@ for (init in 1:nInit) {
       # backward propagation
       torch_sum(mLik)$backward(retain_graph=TRUE)
       # store gradients
-      grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, Qs$grad, Rs$grad))
+      grad <- torch_cat(list(a$grad, b$grad, k$grad, Lmd$grad, alpha$grad, beta$grad, Q$grad, R$grad))
       
       if (as.numeric(torch_sum(torch_isnan(grad))) > 0) {
         print(as.numeric(torch_sum(mLik)))
@@ -289,30 +308,40 @@ for (init in 1:nInit) {
       result <- adam(theta, grad, iter, m, v)
       # update parameters
       theta <- result$theta
-      theta[11:12] <- torch_tensor(max(torch_tensor(c(0,0)), theta[11:12]))
-      theta[13:14] <- torch_tensor(max(torch_tensor(c(0,0)), theta[13:14]))
+      theta[12:13] <- torch_tensor(max(torch_tensor(c(0,0)), theta[12:13]))
+      theta[14:15] <- torch_tensor(max(torch_tensor(c(0,0)), theta[14:15]))
       a <- torch_tensor(theta[1:2], requires_grad=TRUE)
       b <- torch_tensor(theta[3:4], requires_grad=TRUE)
       k <- torch_tensor(theta[5:6], requires_grad=TRUE)
       Lmd <- torch_tensor(theta[7:8], requires_grad=TRUE)
-      alpha <- torch_tensor(theta[9:9], requires_grad=TRUE)
-      beta <- torch_tensor(theta[10:10], requires_grad=TRUE)
-      Qs <- torch_tensor(theta[11:12], requires_grad=TRUE)
-      Rs <- torch_tensor(theta[13:14], requires_grad=TRUE)
+      alpha <- torch_tensor(theta[9:10], requires_grad=TRUE)
+      beta <- torch_tensor(theta[11:11], requires_grad=TRUE)
+      Q <- torch_tensor(theta[12:13], requires_grad=TRUE)
+      R <- torch_tensor(theta[14:15], requires_grad=TRUE)
       m <- result$m 
       v <- result$v
     }
     iter <- iter + 1
   } # nIter
   
-  sumLikBestNow <- -1e8
-  thetaBestNow <- torch_full(14, NaN)
+  sumLikBestNow <- epsilon
+  thetaBestNow <- torch_full(nparams, NaN)
   
 } # nInit
 
 # return the best result
 print(paste0('Best sum likelihood = ', sumLikBest[[1]]))
 thetaBest <- as.data.frame(t(as.matrix(thetaBest)))
-colnames(thetaBest) <- c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha', 'beta', 'Qs1', 'Qs2', 'Rs1', 'Rs2')
+colnames(thetaBest) <- c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha1', 'alpha2', 'beta', 'Q1', 'Q2', 'R1', 'R2')
 print('Optimal parameters found:')
 print(paste0(colnames(thetaBest), ": ", as.matrix(thetaBest)))
+
+print('yt (true scores):')
+print(yt)
+print('yth (One-step-ahead predictions):')
+print(yth)
+
+print('St (true scores)')
+print(state)
+print('mPr')
+print(mPrBest)
