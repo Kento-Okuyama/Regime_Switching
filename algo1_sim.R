@@ -277,7 +277,10 @@ for (init in 1:nInit) {
         
         # stopping criterion
         if (iter > 1) {
-          crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]])
+          if (sumLik[iter][[1]] - sumLik[1][[1]] != 0) {
+            crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
+          else {crit <- 0}
+          
           # add count if sumLik does not beat the best score 
           if (crit < 1e-2) {
             count <- count + 1 }
@@ -345,3 +348,7 @@ print('St (true scores)')
 print(state)
 print('mPr')
 print(mPrBest)
+
+# PoC: if you want to test the feasibility of the model
+# yt <- as.matrix(yth)
+# state <- torch_bernoulli(mPrBest) + 1
