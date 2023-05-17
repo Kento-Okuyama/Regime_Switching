@@ -54,6 +54,7 @@ adam <- function(theta, grad, iter, m, v, lr=3e-2, beta1=0.9, beta2=0.999, epsil
 nInit <- 5
 # max number of optimization steps
 nIter <- 10
+
 # initialization for Adam optimization
 m <- NULL
 v <- NULL
@@ -126,6 +127,7 @@ for (init in 1:nInit) {
   print(paste0('Initialization step: ', init))
   
   # step 1: input {y_{it}}
+  
   # step 2: initialize set of parameters
   
   # define parameters
@@ -135,6 +137,8 @@ for (init in 1:nInit) {
   Lmd <- torch_randn(2)
   alpha <- torch_randn(2)
   beta <- torch_randn(1)
+  Q <- torch_normal(mean=0, std=1e-1, size=2)**2
+  R <- torch_normal(mean=0, std=1e-1, size=2)**2
   
   # with gradient tracking
   a <- torch_tensor(a, requires_grad=TRUE)
@@ -143,6 +147,8 @@ for (init in 1:nInit) {
   Lmd <- torch_tensor(Lmd, requires_grad=TRUE)
   alpha <- torch_tensor(alpha, requires_grad=TRUE)
   beta <- torch_tensor(beta, requires_grad=TRUE)
+  Q <- torch_tensor(Q, requires_grad=TRUE)
+  R <- torch_tensor(R, requires_grad=TRUE)
   
   # step 3: initialize latent variables
   # latent variable score at initial time point is assumed to follow N(0, 1e3) 
@@ -150,14 +156,7 @@ for (init in 1:nInit) {
     mEta[,1,s] <- rep(x=0, times=N)
     mP[,1,s] <- rep(x=1e3, times=N)
   }
-  
-  # step 4: initialize residual variances
-  Q <- torch_normal(mean=0, std=1e-1, size=2)**2
-  R <- torch_normal(mean=0, std=1e-1, size=2)**2
-  
-  Q <- torch_tensor(Q, requires_grad=TRUE)
-  R <- torch_tensor(R, requires_grad=TRUE)
-  
+
   # vectorize parameters
   theta <- torch_cat(list(a, b, k, Lmd, alpha, beta, Q, R))
   
@@ -175,14 +174,15 @@ for (init in 1:nInit) {
     # fixed prob of switching back
     tPr[,,2] <- torch_sigmoid(alpha[2])
     
-    # step 5: initialize marginal probability
+    # step 4: initialize marginal probability
     mPr[,1] <- epsilon # no drop out at t=0
     
     print(paste0('   optimization step: ', as.numeric(iter)))
-    # step 6
+    
+    # step 5
     for (t in 1:Nt) {
       
-      # step 9 
+      # step 6 
       for (s1 in 1:2) {
         for (s2 in 1:2) {
           
@@ -199,7 +199,7 @@ for (init in 1:nInit) {
           jEta2[,t,s1,s2] <- torch_clone(jEta[,t,s1,s2]) + torch_clone(Ks) * torch_clone(jV[,t,s1,s2]) 
           jP2[,t,s1,s2] <- torch_clone(jP[,t,s1,s2]) - torch_clone(Ks) * Lmd[s1] * torch_clone(jP[,t,s1,s2])
           
-          # step 10 
+          # step 7 
           compared <- ((2*pi)**(-1/2) * (torch_clone(jF[,t,s1,s2]))**(-1/2) *
                          torch_exp(-1/2 * torch_clone(jV[,t,s1,s2])**2 / torch_clone(jF[,t,s1,s2]))) > epsilon
           jLik[,t,s1,s2] <- torch_full(N, epsilon)
@@ -210,23 +210,21 @@ for (init in 1:nInit) {
         }
       }
       
-      # step 7 
+      # step 8
       tPr[,t,1] <- torch_sigmoid(alpha[1] + beta * yt[,t])
       
-      # step 8 
+      # step 9
       jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t]))
       jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
       jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
       jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
       
-      yth[,t] <- torch_sum(jyth[,t,,] * jPr[,t,,])
-      
-      # step 11 
+      # step 9 
       mLik[,t] <- torch_sum(torch_clone(jLik[,t,,]) * torch_clone(jPr[,t,,]))
       
       for (s1 in 1:2) {
         for (s2 in 1:2) {
-          # step 11 
+          # step 9 (continuation)
           jPr2[,t,s1,s2] <- torch_clone(jLik[,t,s1,s2]) * torch_clone(jPr[,t,s1,s2]) / torch_clone(mLik[,t])
           if (s1 == 2) {
             mPr[,t+1] <- torch_clone(mPr[,t+1]) + torch_clone(jPr2[,t,s1,s2]) }
@@ -235,7 +233,8 @@ for (init in 1:nInit) {
       
       for (s1 in 1:2) {
         for (s2 in 1:2) {
-          # step 12
+          
+          # step 10
           if (s1 == 1) {
             compared <- 1 - torch_clone(mPr[,t+1]) > epsilon
             denom <- torch_full(N, epsilon)
@@ -252,12 +251,12 @@ for (init in 1:nInit) {
         }
       }
       
-      # step 12 (continuation)
+      # step 10 (continuation)
       mEta[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * torch_clone(jEta2[,t,,]), dim=3)
       mEtaVec <- torch_cat(list(torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3), torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3)), dim=3)
       mP[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * ( torch_clone(jP2[,t,,]) + (mEtaVec - torch_clone(jEta2[,t,,]))**2 ), dim=3)
       
-    } # this line relates to the beginning of step 6
+    } # this line relates to the beginning of step 5
     
     if (count < 3) {
       if (as.numeric(torch_sum(torch_isnan(mLik))) > 0) { # is mLik has NaN values
