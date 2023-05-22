@@ -42,6 +42,7 @@ No <- length(cols)
 # col20 : dropout : whether drop-out occurred (binary) 
 y2D <- data[, c("ID", "day", cols, "dropout")]
 
+str(data)
 # unique ID
 uID <- unique(y2D$ID)
 # unique day
@@ -55,9 +56,10 @@ N <- length(uID)
 nC2D <- ncol(y2D)
 
 # rename 17 variables
-colnames(y2D)[3:(nC2D-1)] <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
-            "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
-            "NA1", "NA5", "NA9")
+cols <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
+          "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
+          "NA1", "NA5", "NA9")
+colnames(y2D)[3:(nC2D-1)] <- cols
 
 # unexpected input: dropout = -1
 # table(yt2$dropout)
@@ -65,12 +67,11 @@ colnames(y2D)[3:(nC2D-1)] <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "u
 #########################################################
 # reshape the longitudinal data into 3D (N x Nt x nC3D) #
 #########################################################
-# col1 : day 
-# col2-18 : cols: intra-individual observed variables
-# col19 : dropout : whether drop-out occurred (binary) 
+# col1-17 : cols: intra-individual observed variables
+# col18 : dropout : whether drop-out occurred (binary) 
 
 # number of columns : 18
-nC3D <- nC2D-2
+nC3D <- nC2D - 2
 
 # 1: crate an array of NAs 
 y3D <- array(NA, c(N, Nt, nC3D)) 
@@ -157,6 +158,9 @@ uDay <- uDay[11:Nt]
 # number of days : 122
 Nt <- dim(y3D)[2]
 
+# unique ID (updated)
+uID <- uID[complete.cases(y3D[,1,])]
+
 # remove rows with missing values at t=11
 y3D <- y3D[complete.cases(y3D[,1,]),,] 
 # dim(y3D) # 82 x 122 x 18
@@ -175,9 +179,11 @@ N <- dim(y3D)[1]
 # reshape the 3D data into 2D again (for CFA) #
 ###############################################
 
-y2D2 <- array(NA, c(N*Nt, nC2D))
+y2D2 <- matrix(data=NA, nrow=N*Nt, ncol=nC2D)
 y2D2 <- data.frame(y2D2)
 colnames(y2D2) <- c("ID", "day", cols, "dropout")
+# N*Nt
+NxNt <- nrow(y2D2)
 # dim(y2D2)
 
 count <- 1
@@ -192,3 +198,5 @@ for (i in 1:N) {
 
 # save data as a list
 df <- list(y2D=y2D2, y3D=y3D)
+y2D <- df$y2D
+y3D <- df$y3D
