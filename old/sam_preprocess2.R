@@ -27,7 +27,7 @@ cols_w <- c("Av1_state", "Iv1_state", "Uv1_state", "Co1_state", "Co2_state", "Le
 # col20 : event : whether drop-out occurred (binary) 
 y_w <- data[, c("ID", "day", cols_w, "dropout")]
 
-# dropout contains -1
+# dropout = -1 exists
 # table(y_w$dropout)
 
 # unique ID
@@ -142,30 +142,6 @@ for (i in 1:N) {
 # replace -1e30 with NA
 yw[yw == -1e30] <- NA
 
-############################################
-# Confirmatory Factor Analysis with lavaan #
-############################################
-
-library(lavaan)
-
-#######
-# CFA #
-#######
-
-model_cfa <- '
-# latent variables
-subImp =~ Av + Iv + Uv
-cost =~ Co1 + Co2
-understand =~ understand1 + understand2
-stress =~ stress1 + stress2
-AtF =~ AtF1 + AtF2
-PAS =~ PA1 + PA5 + PA8
-NAS =~ NA1 + NA5 + NA9
-'
-
-# number of latent factor 
-Nf <- 7
-
 # # 36 people with no response at t=10
 # summary(yw[,10,])
 # # 17 people with no response at t=11
@@ -181,35 +157,9 @@ yw <- yw[,11:Nt,]
 # number of days : 122
 Nt <- dim(yw)[2]
 
-# fit_cfas <- list()
-# Yt <- list()
-
 # remove rows with missing values at t=11
 yw <- yw[complete.cases(yw[,1,]),,2:nCol] 
 # dim(yw)
-
-
-# # select 17 intra-individual variables
-# cols_w <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2", 
-#             "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8", 
-#             "NA1", "NA5", "NA9")
-
-# Av: attainment value
-# Iv: intrinsic value
-# Uv: utility value
-# Co1, Co2: cost
-# understand1, understand2: understanding
-# stress1, stress2: stress
-# AtF1, AtF2: afraid to fail
-# PA1, PA5, PA8: positive affect scale (careful, active, excited)
-# NA1, NA5, NA9: negative affect scale (nervous, afraid, distressed)
-
-# for (t in 1:Nt) {
-#   y <- yw[,t,1:(nCol-2)]
-#   colnames(y) <- cols_w
-#   fit_cfas[[t]] <- cfa(model_cfa, data=y)
-#   Yt[[t]] <- lavPredict(fit_cfas[[t]], method = "Bartlett")
-# }
 
 # save data as list
 (df <- list(state=yw[,,nCol-1], Yt=yw[,,1:(nCol-2)]))

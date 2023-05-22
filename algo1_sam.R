@@ -2,6 +2,51 @@
 library(torch)
 # install.packages("reticulate")
 library(reticulate)
+# install.packages("lavaan")
+library(lavaan)
+
+############################################
+# Confirmatory Factor Analysis with lavaan #
+############################################
+
+model_cfa <- '
+# latent variables
+subImp =~ Av + Iv + Uv
+cost =~ Co1 + Co2
+understand =~ understand1 + understand2
+stress =~ stress1 + stress2
+AtF =~ AtF1 + AtF2
+PAS =~ PA1 + PA5 + PA8
+NAS =~ NA1 + NA5 + NA9
+'
+
+# number of latent factor 
+Nf <- 7
+
+fit_cfas <- list()
+eta <- list()
+
+# select 17 intra-individual variables
+cols_w <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
+            "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
+            "NA1", "NA5", "NA9")
+
+# Av: attainment value
+# Iv: intrinsic value
+# Uv: utility value
+# Co1, Co2: cost
+# understand1, understand2: understanding
+# stress1, stress2: stress
+# AtF1, AtF2: afraid to fail
+# PA1, PA5, PA8: positive affect scale (careful, active, excited)
+# NA1, NA5, NA9: negative affect scale (nervous, afraid, distressed)
+
+for (t in 1:Nt) {
+  y <- yw[,t,1:(nCol-2)]
+  colnames(y) <- cols_w
+  fit_cfas[[t]] <- cfa(model_cfa, data=y)
+  eta[[t]] <- lavPredict(fit_cfas[[t]], method="Bartlett")
+}
 
 epsilon <- 1e-30
 nparams <- 15
@@ -65,15 +110,14 @@ for (init in 1:nInit) {
   count <- 0
   
   # first and second moment estimates
-  m <- NULL
-  v <- NULL
-  
+  m <- v <- NULL
+
   # for reproducibility
   set.seed(init)
   
   print(paste0('Initialization step: ', init))
   
-  # step 1: input {y_{it}}
+  # step 1: input {Y_{it}}
   # step 2: initialize set of parameters
   
   # define parameters
@@ -150,15 +194,15 @@ for (init in 1:nInit) {
     # fixed prob of switching back
     tPr[,,2] <- torch_sigmoid(alpha2)
     
-    # step 4: initialize marginal probability
+    # step 4: initialize marginal probability at t=0
     mPr[,1] <- epsilon # no drop out at t=0
     
     print(paste0('   optimization step: ', as.numeric(iter)))
     
-    # step 5
+    # step 6
     for (t in 1:Nt) {
       
-      # step 6
+      # step 7: Kalman Filter
       for (s1 in 1:2) {
         for (s2 in 1:2) {
           
