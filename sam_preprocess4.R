@@ -13,12 +13,51 @@ colnames(data)[2] <- "day"
 # change the last column name from event to dropout
 colnames(data)[92] <- "dropout"
 
-# select 17 intra-individual observed variables
-cols <- c("Av1_state", "Iv1_state", "Uv1_state", "Co1_state", "Co2_state", "Leist_verstehen_state", "Leist_bearbeiten_state", 
+# select intra-individual observed variables
+cols_w <- c("Av1_state", "Iv1_state", "Uv1_state", "Co1_state", "Co2_state", "Leist_verstehen_state", "Leist_bearbeiten_state", 
           "Leist_stress_state", "Leist_ueberfordert_state", "Angst_abbruch_state", "Angst_scheitern_state", "PANP01_state", 
           "PANP05_state", "PANP08_state", "PANN01_state", "PANN05_state", "PANN09_state")
+# select inter-individual observed variables
+cols_b <- c("gesamt_iq")
+
+cols <- c(cols_w, cols_b)
+  
+# number of observed variables that are used
+No <- length(cols)
+
+############################
+# get 2D longitudinal data #
+############################
+# Code : participant's ID 
+# day 
+# cols: intra-individual and inter-individual observed variables
+# dropout : whether drop-out occurred (binary) 
+y2D <- data[, c("ID", "day", cols, "dropout")]
+
+str(data)
+# unique ID
+uID <- unique(y2D$ID)
+# unique day
+uDay <- min(y2D$day):max(y2D$day)
+
+# number of days
+Nt <- length(uDay)
+# number of persons
+N <- length(uID)
+# number of columns
+nC2D <- ncol(y2D)
+
+# rename within-variables
+cols_w <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
+          "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
+          "NA1", "NA5", "NA9")
+# rename between-variables
+cols_b <- c("totIQ")
+
+cols <- c(cols_w, cols_b)
 
 ######################################################################
+## within ##
 # Av: attainment value
 # Iv: intrinsic value
 # Uv: utility value
@@ -28,37 +67,10 @@ cols <- c("Av1_state", "Iv1_state", "Uv1_state", "Co1_state", "Co2_state", "Leis
 # AtF1, AtF2: afraid to fail
 # PA1, PA5, PA8: positive affect scale (careful, active, excited)
 # NA1, NA5, NA9: negative affect scale (nervous, afraid, distressed)
+## between ##
+# totIQ: cognitive basic ability (total score)
 ######################################################################
 
-# number of observed variables that are used
-No <- length(cols)
-
-############################
-# get 2D longitudinal data #
-############################
-# col1 : Code : participant's ID 
-# col2 : day 
-# col3-19 : cols: intra-individual observed variables
-# col20 : dropout : whether drop-out occurred (binary) 
-y2D <- data[, c("ID", "day", cols, "dropout")]
-
-str(data)
-# unique ID
-uID <- unique(y2D$ID)
-# unique day
-uDay <- min(y2D$day):max(y2D$day)
-
-# number of days : 132
-Nt <- length(uDay)
-# number of persons : 122
-N <- length(uID)
-# number of columns : 20
-nC2D <- ncol(y2D)
-
-# rename 17 variables
-cols <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
-          "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
-          "NA1", "NA5", "NA9")
 colnames(y2D)[3:(nC2D-1)] <- cols
 
 # unexpected input: dropout = -1
@@ -70,12 +82,12 @@ colnames(y2D)[3:(nC2D-1)] <- cols
 # col1-17 : cols: intra-individual observed variables
 # col18 : dropout : whether drop-out occurred (binary) 
 
-# number of columns : 18
+# number of columns
 nC3D <- nC2D - 2
 
 # 1: crate an array of NAs 
 y3D <- array(NA, c(N, Nt, nC3D)) 
-dim(y3D) # 122 x 132 x 18
+# dim(y3D)
 
 # 2: fill the entries of (y3D) based on (y2D) 
 for (i in 1:N) {
@@ -96,7 +108,7 @@ y3D <- y3D[remID==FALSE,,]
 # unique ID (updated)
 uID <- uID[remID==FALSE]
 
-# number of persons : 117
+# number of persons (updated)
 N <- dim(y3D)[1]
 
 # there are dropout = 0.5 
@@ -155,7 +167,7 @@ y3D <- y3D[,11:Nt,]
 # unique day (updated)
 uDay <- uDay[11:Nt]
 
-# number of days : 122
+# number of days (updated)
 Nt <- dim(y3D)[2]
 
 # unique ID (updated)
@@ -163,9 +175,9 @@ uID <- uID[complete.cases(y3D[,1,])]
 
 # remove rows with missing values at t=11
 y3D <- y3D[complete.cases(y3D[,1,]),,] 
-# dim(y3D) # 82 x 122 x 18
+# dim(y3D)
 
-# number of persons : 82
+# number of persons (updated)
 N <- dim(y3D)[1]
 
 # doNull <- is.na(y3D[,,nC3D])

@@ -14,20 +14,21 @@ stress =~ stress1 + stress2
 AtF =~ AtF1 + AtF2
 PAS =~ PA1 + PA5 + PA8
 NAS =~ NA1 + NA5 + NA9
+IQ =~ totIQ
 '
 
 # number of latent factor 
-Nf <- 7
+Nf <- 8
 
 fit_cfas <- list()
 eta <- list()
 
-# apply CFA to 17 intra-individual variables in order to obtain 7 factors  
+# apply CFA to intra- and inter-individual variables in order to obtain factors  
 fit_cfas <- cfa(model_cfa, data=y2D[,3:(nC2D-1)])
 eta2D <- lavPredict(fit_cfas, method='Bartlett')
 eta2D <- data.frame(eta2D)
 
-dim(eta2D) # 1786 valid observations (<< NxNt)
+dim(eta2D) # number of valid observations (<< NxNt)
 
 # create NxNt array to store factore scores
 eta2DFull <- matrix(data=NA, nrow=NxNt, ncol=Nf+3)
@@ -43,21 +44,21 @@ for (i in 1:NxNt) {
 
 eta2DFull[,c(1,2,nC2D_eta)] <- y2D[,c(1,2,nC2D)]
 
-# 1786 valid observations
+# valid observations (same as eta2D)
 sum(rowSums(is.na(eta2DFull)) == 0)
 
 #######################################################
 # reshape the longitudinal data into 3D (N x Nt x Nf) #
 #######################################################
-# col1-7 : cols: intra-individual latent factors
-# col8 : dropout : whether drop-out occurred (binary) 
+# cols: intra- and inter-individual latent factors
+# dropout : whether drop-out occurred (binary) 
 
-# number of columns : 8
+# number of columns
 nC3D_eta <- nC2D_eta - 2
 
 # 1: crate an array of NAs 
 eta3D <- array(NA, c(N, Nt, nC3D_eta))
-dim(eta3D) # 82 x 122 x 8
+# dim(eta3D) 
 
 # 2: fill the entries of (eta3D) based on (eta2D) 
 for (i in 1:N) {
