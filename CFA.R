@@ -64,7 +64,7 @@ eta3D <- array(NA, c(N, Nt, nC3D_eta))
 for (i in 1:N) {
   # take ith person's data from eta2D
   eta2DFull_i <- eta2DFull[eta2DFull$ID==uID[i],]
-  for (t in 1:Nt) {eta3D[i,t,] <- as.logical(eta2DFull_i[eta2DFull_i$day==uDay[t],3:nC2D_eta]) } } 
+  for (t in 1:Nt) {eta3D[i,t,] <- as.numeric(eta2DFull_i[eta2DFull_i$day==uDay[t],3:nC2D_eta]) } } 
 
 # save data as a list
 df <- list(eta2D=eta2DFull, eta3D=eta3D)
