@@ -26,5 +26,3 @@
 # K_{t}^{s} -> 0
 # f(eta_{t}|eta{t-1}) := f(eta_{t}|s,s',eta{t-1}) -> 0
 #
-
-# FIML
