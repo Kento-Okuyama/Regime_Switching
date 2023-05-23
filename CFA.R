@@ -31,9 +31,9 @@ eta2D <- data.frame(eta2D)
 dim(eta2D) # number of valid observations (<< NxNt)
 
 # create NxNt array to store factore scores
-eta2DFull <- matrix(data=NA, nrow=NxNt, ncol=Nf+3)
+eta2DFull <- matrix(data=NA, nrow=NxNt, ncol=Nf+2)
 eta2DFull <- data.frame(eta2DFull)
-colnames(eta2DFull) <- c("ID", "day", colnames(eta2D), "dropout")
+colnames(eta2DFull) <- c("ID", "day", colnames(eta2D))
 nC2D_eta <- ncol(eta2DFull)
 
 count <- 1

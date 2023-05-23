@@ -207,7 +207,6 @@ for (init in 1:nInit) {
         for (s2 in 1:2) {
           
           jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]])
-          print('ok')
           jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), torch_transpose(B[[s1]])) + Q[[s1]]
           
           jyth[,t,s1,s2,] <- k[[s1]] + torch_matmul(Lmd[[s1]], torch_clone(jEta[,t,s1,s2,]))
