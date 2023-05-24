@@ -55,22 +55,22 @@ for (init in 1:nInit) {
   B1d <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   B2d <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   B1 <- torch_diag(B1d)
-  B2 <- torch_reshape(B2d)
+  B2 <- torch_diag(B2d)
   B <- list(B1, B2)
   k1 <- torch_tensor(torch_randn(No), requires_grad=TRUE)
   k2 <- torch_tensor(torch_randn(No), requires_grad=TRUE)
   k <- list(k1, k2)
   Lmd1v <- torch_tensor(torch_randn(No), requires_grad=TRUE)
   Lmd2v <- torch_tensor(torch_randn(No), requires_grad=TRUE)
-  Lmd1 <- Lmd2 <- torch_full(c(No,Nf), 0)
-  Lmd1[1:3,1] <- Lmd1v[1:3]; Lmd1[4:5,2] <- Lmd1v[4:5]
-  Lmd1[6:7,3] <- Lmd1v[6:7]; Lmd1[8:9,4] <- Lmd1v[8:9]
-  Lmd1[10:11,5] <- Lmd1v[10:11]; Lmd1[12:14,6] <- Lmd1v[12:14]
-  Lmd1[15:17,7] <- Lmd1v[15:17]; Lmd1[18,8] <- Lmd2v[18]
-  Lmd2[1:3,1] <- Lmd2v[1:3]; Lmd2[4:5,2] <- Lmd2v[4:5]
-  Lmd2[6:7,3] <- Lmd2v[6:7]; Lmd2[8:9,4] <- Lmd2v[8:9]
-  Lmd2[10:11,5] <- Lmd2v[10:11]; Lmd2[12:14,6] <- Lmd2v[12:14]
-  Lmd2[15:17,7] <- Lmd2v[15:17]; Lmd2[18,8] <- Lmd2v[18]
+  Lmd1 <- Lmd2 <- torch_full(c(Nf,No), 0)
+  Lmd1[1,1:3] <- Lmd1v[1:3]; Lmd1[2,4:5] <- Lmd1v[4:5]
+  Lmd1[3,6:7] <- Lmd1v[6:7]; Lmd1[4,8:9] <- Lmd1v[8:9]
+  Lmd1[5,10:11] <- Lmd1v[10:11]; Lmd1[6,12:14] <- Lmd1v[12:14]
+  Lmd1[7,15:17] <- Lmd1v[15:17]; Lmd1[8,18] <- Lmd2v[18]
+  Lmd2[1,1:3] <- Lmd2v[1:3]; Lmd2[2,4:5] <- Lmd2v[4:5]
+  Lmd2[3,6:7] <- Lmd2v[6:7]; Lmd2[4,8:9] <- Lmd2v[8:9]
+  Lmd2[5,10:11] <- Lmd2v[10:11]; Lmd2[6,12:14] <- Lmd2v[12:14]
+  Lmd2[7,15:17] <- Lmd2v[15:17]; Lmd2[8,18] <- Lmd2v[18]
   Lmd <- list(Lmd1, Lmd2)
   alpha1 <- torch_tensor(torch_randn(1), requires_grad=TRUE)
   alpha2 <- torch_tensor(torch_randn(1), requires_grad=TRUE)
@@ -131,10 +131,23 @@ for (init in 1:nInit) {
         s1 <- jS$s1[js]
         s2 <- jS$s2[js]
         
+        noNaRows <- rowSums(is.na(y[,t,])) == 0
+        naRows <- rowSums(is.na(y[,t,])) > 0 
+        
         jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]])
-        jDelta[,t,s1,s2,] <- eta
-        jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), torch_transpose(B[[s1]], dim0=1, dim1=2)) + Q[[s1]] 
-        print(jP[,t,s1,s2,,])
+        jDelta[noNaRows,t,s1,s2,] <- eta[noNaRows,t,] - jEta[noNaRows,t,s1,s2]; jDelta[naRows,t,s1,s2,] <- 0 
+        jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]]
+        jV[noNaRows,t,s1,s2,] <- y[noNaRows,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]])); jV[naRows,t,s1,s2,] <- 0
+        jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], dim0=2, dim1=1), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]]
+        Ks <- torch_matmul(torch_matmul(torch_clone(jP[,t,s1,s2,,]), Lmd[[s1]]), torch_pinverse(torch_clone(jF[,t,s1,s2,,])))
+        jEta2[,t,s1,s2,] <- torch_clone(jEta[,t,s1,s2]) + torch_squeeze(torch_bmm(torch_clone(Ks), torch_unsqueeze(torch_clone(jV[,t,s1,s2]), dim=3)))
+        jP2[,t,s1,s2] <- torch_clone(jP[,t,s1,s2,,]) - torch_bmm(torch_matmul(torch_clone(Ks), torch_transpose(Lmd[[s1]], dim0=2, dim1=1)), torch_clone(jP[,t,s1,s2,,]))
+        print(jP2[,t,s1,s2,,])
+        
+        # step 8: joint likelihood function f(eta_{t} | s,s', eta_{t-1})
+        
+        # Hamilton Filter: if likelihood ratio f(eta_{t} | s,s', eta_{t-1}) / f(eta_{t} | eta_{t-1}) = 0 / 0,
+        # let P(s,s'|eta_t) = P(s,s'|eta_{t-1})
       } } }
 
 }
