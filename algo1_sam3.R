@@ -91,22 +91,22 @@ for (init in 1:nInit) {
   theta <- torch_cat(list(a1,a2,B1d,B2d,k1,k2,Lmd1v,Lmd2v,alpha1,alpha2,beta1,beta2,Q1d,Q2d,R1d,R2d))
   
   # define variables
-  jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Equation 2 (LHS)
-  jDelta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Equation 3 (LHS)
-  jP <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Equation 4 (LHS)
-  jV <- torch_full(c(N,Nt,2,2,No), NaN) # Equation 5 (LHS)
-  jF <- torch_full(c(N,Nt,2,2,No,No), NaN) # Equation 6 (LHS)
-  jEta2 <- torch_full(c(N,Nt,2,2,Nf), NaN) # Equation 7 (LHS)
-  jP2 <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Equation 8 (LHS)
-  mEta <- torch_full(c(N,Nt+1,2,Nf), NaN) # Equation 9-1 (LHS)
-  mP <- torch_full(c(N,Nt+1,2,Nf,Nf), NaN) # Equation 9-2 (LHS)
-  W <- torch_full(c(N,Nt,2,2), NaN) # Equation 9-3 (LHS)
-  jPr <- torch_full(c(N,Nt,2,2), NaN) # Equation 10-1 (LHS)
-  mLik <- torch_full(c(N,Nt,No), NaN) # Equation 10-2 (LHS)
-  jPr2 <- torch_full(c(N,Nt,2,2), NaN) # Equation 10-3 (LHS)
-  mPr <- torch_full(c(N,Nt+1), NaN) # Equation 10-4 (LHS)
-  jLik <- torch_full(c(N,Nt,2,2,No), NaN) # Equation 11 (LHS)
-  tPr <- torch_full(c(N,Nt,2), NaN) # Equation 12 (LHS)
+  jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.2 (LHS)
+  jDelta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.3 (LHS)
+  jP <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Eq.4 (LHS)
+  jV <- torch_full(c(N,Nt,2,2,No), NaN) # Eq.5 (LHS)
+  jF <- torch_full(c(N,Nt,2,2,No,No), NaN) # Eq.6 (LHS)
+  jEta2 <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.7 (LHS)
+  jP2 <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Eq.8 (LHS)
+  mEta <- torch_full(c(N,Nt+1,2,Nf), NaN) # Eq.9-1 (LHS)
+  mP <- torch_full(c(N,Nt+1,2,Nf,Nf), NaN) # Eq.9-2 (LHS)
+  W <- torch_full(c(N,Nt,2,2), NaN) # Eq.9-3 (LHS)
+  jPr <- torch_full(c(N,Nt,2,2), NaN) # Eq.10-1 (LHS)
+  mLik <- torch_full(c(N,Nt,No), NaN) # Eq.10-2 (LHS)
+  jPr2 <- torch_full(c(N,Nt,2,2), NaN) # Eq.10-3 (LHS)
+  mPr <- torch_full(c(N,Nt+1), NaN) # Eq.10-4 (LHS)
+  jLik <- torch_full(c(N,Nt,2,2,No), NaN) # Eq.11 (LHS)
+  tPr <- torch_full(c(N,Nt,2), NaN) # Eq.12 (LHS)
   
   # step 4: initialize latent variables
   for (s in 1:2) {
@@ -131,23 +131,33 @@ for (init in 1:nInit) {
         s1 <- jS$s1[js]
         s2 <- jS$s2[js]
         
-        noNaRows <- rowSums(is.na(y[,t,])) == 0
-        naRows <- rowSums(is.na(y[,t,])) > 0 
+        # rows that have non-NA values 
+        noNaRows <- which(rowSums(is.na(y[,t,])) == 0)
+        # rows that have NA values
+        naRows <- which(rowSums(is.na(y[,t,])) > 0)
         
-        jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]])
-        jDelta[noNaRows,t,s1,s2,] <- eta[noNaRows,t,] - jEta[noNaRows,t,s1,s2]; jDelta[naRows,t,s1,s2,] <- 0 
-        jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]]
-        jV[noNaRows,t,s1,s2,] <- y[noNaRows,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]])); jV[naRows,t,s1,s2,] <- 0
-        jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], dim0=2, dim1=1), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]]
-        Ks <- torch_matmul(torch_matmul(torch_clone(jP[,t,s1,s2,,]), Lmd[[s1]]), torch_pinverse(torch_clone(jF[,t,s1,s2,,])))
-        jEta2[,t,s1,s2,] <- torch_clone(jEta[,t,s1,s2]) + torch_squeeze(torch_bmm(torch_clone(Ks), torch_unsqueeze(torch_clone(jV[,t,s1,s2]), dim=3)))
-        jP2[,t,s1,s2] <- torch_clone(jP[,t,s1,s2,,]) - torch_bmm(torch_matmul(torch_clone(Ks), torch_transpose(Lmd[[s1]], dim0=2, dim1=1)), torch_clone(jP[,t,s1,s2,,]))
-        print(jP2[,t,s1,s2,,])
-        
+        jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
+        for (noNaRow in noNaRows) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - torch_clone(jEta[noNaRow,t,s1,s2,])} # Eq.3
+        jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]] # Eq.4
+        for (noNaRow in noNaRows) {jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} # Eq.5
+        jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], dim0=2, dim1=1), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
+        for (noNaRow in noNaRows) {
+          Ks <- torch_matmul(torch_matmul(torch_clone(jP[noNaRow,t,s1,s2,,]), Lmd[[s1]]), torch_pinverse(torch_clone(jF[noNaRow,t,s1,s2,,])))
+          jEta2[noNaRow,t,s1,s2,] <- torch_clone(jEta[noNaRow,t,s1,s2,]) + torch_matmul(torch_clone(Ks), torch_clone(jV[noNaRow,t,s1,s2,])) # Eq.7
+          jP2[noNaRow,t,s1,s2,,] <- 
+            torch_clone(jP[noNaRow,t,s1,s2,,]) - torch_matmul(torch_matmul(torch_clone(Ks), torch_transpose(Lmd[[s1]], dim0=2, dim1=1)), torch_clone(jP[noNaRow,t,s1,s2,,])) } # Eq.8 
+        for (naRow in naRows) {
+          jEta2[naRow,t,s1,s2,] <- torch_clone(jEta[naRow,t,s1,s2,]) # Eq.7 (for missing entries)
+          jP2[naRow,t,s1,s2,,] <- torch_clone(jP[naRow,t,s1,s2,,]) } # Eq.8 (for missing entries)
+
         # step 8: joint likelihood function f(eta_{t} | s,s', eta_{t-1})
+        
         
         # Hamilton Filter: if likelihood ratio f(eta_{t} | s,s', eta_{t-1}) / f(eta_{t} | eta_{t-1}) = 0 / 0,
         # let P(s,s'|eta_t) = P(s,s'|eta_{t-1})
+        
+        # 1. easily impute data 
+        # 2. find how to handle missing data 
       } } }
 
 }
