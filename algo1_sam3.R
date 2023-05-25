@@ -30,8 +30,12 @@ epsilon <- 1e-30
 
 dropout <- y3D[,,dim(y3D)[3]]
 y <- y3D[,,1:(dim(y3D)[3]-1)]
-No <- dim(y)[3] 
+N <- dim(y)[1]
+Nt <- dim(y)[2]
+No <- dim(y)[3]
 eta <- eta3D
+for (t in 1:Nt) {
+  for (i in 1:N) {eta[i,t,] <- eta[i,t,] - colMeans(eta[,1,])} }
 Nf <- dim(eta)[3]
 
 ###################################
@@ -88,7 +92,7 @@ for (init in 1:nInit) {
   R1 <- torch_diag(R1d)
   R2 <- torch_diag(R2d)
   R <- list(R1, R2)
-  theta <- torch_cat(list(a1,a2,B1d,B2d,k1,k2,Lmd1v,Lmd2v,alpha1,alpha2,beta1,beta2,Q1d,Q2d,R1d,R2d))
+  theta <- torch_cat(list(a1, a2, B1d, B2d, k1, k2, Lmd1v, Lmd2v, alpha1, alpha2, beta1, beta2, Q1d, Q2d, R1d, R2d))
   
   # define variables
   jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.2 (LHS)
@@ -139,26 +143,44 @@ for (init in 1:nInit) {
         jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
         for (noNaRow in noNaRows) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - torch_clone(jEta[noNaRow,t,s1,s2,])} # Eq.3
         jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]] # Eq.4
-        for (noNaRow in noNaRows) {jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} # Eq.5
-        jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], dim0=2, dim1=1), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
+        for (noNaRow in noNaRows) {
+          jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} # Eq.5
+        jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 2, 1), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
         for (noNaRow in noNaRows) {
           Ks <- torch_matmul(torch_matmul(torch_clone(jP[noNaRow,t,s1,s2,,]), Lmd[[s1]]), torch_pinverse(torch_clone(jF[noNaRow,t,s1,s2,,])))
           jEta2[noNaRow,t,s1,s2,] <- torch_clone(jEta[noNaRow,t,s1,s2,]) + torch_matmul(torch_clone(Ks), torch_clone(jV[noNaRow,t,s1,s2,])) # Eq.7
           jP2[noNaRow,t,s1,s2,,] <- 
-            torch_clone(jP[noNaRow,t,s1,s2,,]) - torch_matmul(torch_matmul(torch_clone(Ks), torch_transpose(Lmd[[s1]], dim0=2, dim1=1)), torch_clone(jP[noNaRow,t,s1,s2,,])) } # Eq.8 
+            torch_clone(jP[noNaRow,t,s1,s2,,]) - 
+            torch_matmul(torch_matmul(torch_clone(Ks), torch_transpose(Lmd[[s1]], 2, 1)), torch_clone(jP[noNaRow,t,s1,s2,,])) } # Eq.8 
         for (naRow in naRows) {
           jEta2[naRow,t,s1,s2,] <- torch_clone(jEta[naRow,t,s1,s2,]) # Eq.7 (for missing entries)
           jP2[naRow,t,s1,s2,,] <- torch_clone(jP[naRow,t,s1,s2,,]) } # Eq.8 (for missing entries)
 
         # step 8: joint likelihood function f(eta_{t} | s,s', eta_{t-1})
-        
+        for (noNaRow in noNaRows) {
+          jLik[noNaRow,t,s1,s2,] <- 
+            torch_exp(-.5 * torch_matmul(torch_matmul(jDelta[noNaRow,t,s1,s2,], torch_pinverse(jP[noNaRow,t,s1,s2,,])), jDelta[noNaRow,t,s1,s2,])) 
+          jLik[noNaRow,t,s1,s2,] <- jLik[noNaRow,t,s1,s2,] * (-.5*pi)**(-Nf/2) * torch_det(jP[noNaRow,t,s1,s2,,])**(-.5) } } # Eq.11
         
         # Hamilton Filter: if likelihood ratio f(eta_{t} | s,s', eta_{t-1}) / f(eta_{t} | eta_{t-1}) = 0 / 0,
         # let P(s,s'|eta_t) = P(s,s'|eta_{t-1})
-        
+        for (noNaRow in noNaRows) {
+          if (t == 1) {
+            tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]])
+            tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]]) }
+          else{
+            # dependent on jEta2[1:N,t-1,1:2,1:2,1:No] instead of eta[1:N,t-1,1:No] if possible
+            tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(eta[noNaRow,t-1,], beta[[1]]))
+            tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(eta[noNaRow,t-1,], beta[[2]])) }
+          jPr[noNaRow,t,2,2] <- tPr[noNaRow,t,2] * mPr[noNaRow,t]
+          jPr[noNaRow,t,2,1] <- tPr[noNaRow,t,1] * (1-mPr[noNaRow,t])
+          jPr[noNaRow,t,1,2] <- (1-tPr[noNaRow,t,2]) * mPr[noNaRow,t]
+          jPr[noNaRow,t,1,1] <- (1-tPr[noNaRow,t,1]) * (1-mPr[noNaRow,t]) }
+      for (naRow in naRows) {jPr[naRow,t,,] <- jPr[naRow,t-1,,]}
+      
         # 1. easily impute data 
         # 2. find how to handle missing data 
-      } } }
+      } }
 
 }
 
