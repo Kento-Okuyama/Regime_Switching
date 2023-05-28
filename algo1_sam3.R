@@ -21,7 +21,7 @@ nInit <- 1
 # max number of optimization steps
 nIter <- 1
 # a very small number
-epsilon <- 1e-30
+epsilon <- 1e-15
 
 ###################################
 # s=1: non-drop out state 
@@ -112,11 +112,16 @@ for (init in 1:nInit) {
   jLik <- torch_full(c(N,Nt,2,2), NaN) # Eq.11 (LHS)
   tPr <- torch_full(c(N,Nt,2), NaN) # Eq.12 (LHS)
   
+  # rows that have non-NA values 
+  noNaRows <- list()
+  # rows that have NA values
+  naRows <- list()
+  
   # step 4: initialize latent variables
   for (s in 1:2) {
      for (i in 1:N) {
        mEta[i,1,s,] <- rep(x=0, times=Nf)
-       mP[i,1,s,,] <- diag(x=1e30, nrow=Nf, ncol=Nf) } }
+       mP[i,1,s,,] <- diag(x=1e3, nrow=Nf, ncol=Nf) } }
   
   # while (count < 3) {
   for (iter in 1:nIter) {
@@ -130,62 +135,77 @@ for (init in 1:nInit) {
     # step 6:
     # for (t in 1:Nt) { 
     for (t in 1:3) {
-      print(t)
       # step 7: Kalman Filter
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
         s2 <- jS$s2[js]
         
-        # rows that have non-NA values 
-        noNaRows <- which(rowSums(is.na(y[,t,])) == 0)
+        # rows that does not have NA values 
+        noNaRows[[t]] <- which(rowSums(is.na(y[,t,])) == 0)
         # rows that have NA values
-        naRows <- which(rowSums(is.na(y[,t,])) > 0)
+        naRows[[t]] <- which(rowSums(is.na(y[,t,])) > 0)
         
         jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(mEta[,t,s2,], B[[s1]]) # Eq.2
-        for (noNaRow in noNaRows) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - jEta[noNaRow,t,s1,s2,]} # Eq.3
+        for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - jEta[noNaRow,t,s1,s2,]} # Eq.3
+        
         jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], mP[,t,s2,,]), B[[s1]]) + Q[[s1]] # Eq.4
         
-        for (noNaRow in noNaRows) {
+        for (noNaRow in noNaRows[[t]]) {
           jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(jEta[noNaRow,t,s1,s2,], Lmd[[s1]]))} # Eq.5
         jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 2, 1), jP[,t,s1,s2,,]), Lmd[[s1]]) + R[[s1]] # Eq.6
         
-        for (noNaRow in noNaRows) {
-          Ks <- torch_matmul(torch_matmul(jP[noNaRow,t,s1,s2,,], Lmd[[s1]]), torch_pinverse(jF[noNaRow,t,s1,s2,,]))
+        for (noNaRow in noNaRows[[t]]) {
+          Ks <- torch_matmul(torch_matmul(jP[noNaRow,t,s1,s2,,], Lmd[[s1]]), torch_inverse(jF[noNaRow,t,s1,s2,,]))
           jEta2[noNaRow,t,s1,s2,] <- jEta[noNaRow,t,s1,s2,] + torch_matmul(Ks, jV[noNaRow,t,s1,s2,]) # Eq.7
-          jP2[noNaRow,t,s1,s2,,] <- jP[noNaRow,t,s1,s2,,] - torch_matmul(torch_matmul(Ks, torch_transpose(Lmd[[s1]], 2, 1)), jP[noNaRow,t,s1,s2,,]) } # Eq.8 
+          KsLmd <- torch_matmul(Ks, torch_transpose(Lmd[[s1]], 2, 1))
+          for (f in 1:Nf) {KsLmd[f,f] <- max(KsLmd[f,f], 1 - epsilon)}
+          jP2[noNaRow,t,s1,s2,,] <- jP[noNaRow,t,s1,s2,,] - torch_matmul(KsLmd, jP[noNaRow,t,s1,s2,,]) } # Eq.8 
         
-        for (naRow in naRows) {
+        for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
           jP2[naRow,t,s1,s2,,] <- jP[naRow,t,s1,s2,,] } # Eq.8 (for missing entries)
         
         # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
         # is likelihood function different because I am dealing with latent variables instead of observed variables?
-        for (noNaRow in noNaRows) {
+        for (noNaRow in noNaRows[[t]]) {
+          ######################
+          ## det(P) < 0 why?? ##
+          ######################
           jLik[noNaRow,t,s1,s2] <- 
             torch_exp(-.5 * torch_matmul(torch_matmul(jDelta[noNaRow,t,s1,s2,], torch_pinverse(jP[noNaRow,t,s1,s2,,])), jDelta[noNaRow,t,s1,s2,])) 
-          jLik[noNaRow,t,s1,s2] <- jLik[noNaRow,t,s1,s2] * (-.5*pi)**(-Nf/2) * torch_det(jP[noNaRow,t,s1,s2,,])**(-.5) } } # Eq.11
+          jLik[noNaRow,t,s1,s2] <- jLik[noNaRow,t,s1,s2] * (-.5*pi)**(-Nf/2) * torch_det(jP[noNaRow,t,s1,s2,,])**(-.5) } 
+        
+        for (i in 1:N) {print(paste0('(i,t,s1,s2): (', i, ', ', t, ', ', s1, ',', s2, '): ', as.numeric(torch_det(jP[i,t,s1,s2,,])) < 0))} } # Eq.11
       
       # step 9: transition probability P(s|s',eta_{t-1})  
-      for (noNaRow in noNaRows) {
-        if (t == 1) {
-          tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]])
-          tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]]) }
-        else{
+      if (t == 1) {
+        tPr[,t,1] <- torch_sigmoid(alpha[[1]])
+        tPr[,t,2] <- torch_sigmoid(alpha[[2]]) 
+        jPr[,t,2,2] <- tPr[,t,2] * mPr[,t]
+        jPr[,t,2,1] <- tPr[,t,1] * (1-mPr[,t])
+        jPr[,t,1,2] <- (1-tPr[,t,2]) * mPr[,t]
+        jPr[,t,1,1] <- (1-tPr[,t,1]) * (1-mPr[,t]) }
+      else {
+        for (noNaRow in noNaRows[[t-1]]) {
           tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(eta[noNaRow,t-1,], beta[[1]]))
-          tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(eta[noNaRow,t-1,], beta[[2]])) }
-        # step 10: Hamilton Filter
-        # joint probability P(s,s'|eta_{t-1})
-        jPr[noNaRow,t,2,2] <- tPr[noNaRow,t,2] * mPr[noNaRow,t]
-        jPr[noNaRow,t,2,1] <- tPr[noNaRow,t,1] * (1-mPr[noNaRow,t])
-        jPr[noNaRow,t,1,2] <- (1-tPr[noNaRow,t,2]) * mPr[noNaRow,t]
-        jPr[noNaRow,t,1,1] <- (1-tPr[noNaRow,t,1]) * (1-mPr[noNaRow,t]) }
-      for (naRow in naRows) {jPr[naRow,t,,] <- jPr[naRow,t-1,,]}
+          tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(eta[noNaRow,t-1,], beta[[2]])) 
+          
+          # step 10: Hamilton Filter
+          # joint probability P(s,s'|eta_{t-1})
+          jPr[noNaRow,t,2,2] <- tPr[noNaRow,t,2] * mPr[noNaRow,t]
+          jPr[noNaRow,t,2,1] <- tPr[noNaRow,t,1] * (1-mPr[noNaRow,t])
+          jPr[noNaRow,t,1,2] <- (1-tPr[noNaRow,t,2]) * mPr[noNaRow,t]
+          jPr[noNaRow,t,1,1] <- (1-tPr[noNaRow,t,1]) * (1-mPr[noNaRow,t]) }
+        for (naRow in naRows[[t-1]]) {jPr[naRow,t,,] <- jPr[naRow,t-1,,]} }
+
       # marginal likelihood function f(eta_{t}|eta_{t-1})
-      mLik[,t] <- torch_sum(jLik[,t,,] * jPr[,t,,])
-      # (updated) joint probability P(s,s'|eta_{t})
-      for (noNaRow in noNaRows) {
-        jPr2[noNaRow,t,,] <- jLik[noNaRow,t,,] * jPr[noNaRow,t,,] / max(mLik[noNaRow,t], epsilon)}
-      for (naRow in naRows) {jPr2[naRow,t,,] <- jPr[naRow,t,,]}
+      if (length(noNaRows[[t]]) > 0) {
+        for (noNaRow in noNaRows[[t]]) {
+          mLik[noNaRow,t] <- torch_sum(jLik[noNaRow,t,,] * jPr[noNaRow,t,,])
+        # (updated) joint probability P(s,s'|eta_{t})
+        jPr2[noNaRow,t,,] <- jLik[noNaRow,t,,] * jPr[noNaRow,t,,] / max(mLik[noNaRow,t], epsilon)
+        if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) == 0) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} } }
+      for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- jPr[naRow,t,,]}
       mPr[,t+1] <- torch_sum(jPr2[,t,2,], dim=2)
       
       # step 11: collapsing procedure
@@ -198,12 +218,15 @@ for (init in 1:nInit) {
       for (f in 1:Nf) {mEta[,t+1,,f] <- torch_sum(W[,t,,] * jEta2[,t,,,f], dim=3)}
   
       mEta_jEta2 <- torch_full_like(jEta2[,t,,,], NaN)
-      for (s2 in 1:2) { mEta_jEta2[,,s2,] <- mEta[,t+1,,] - jEta2[,t,,s2,] }
-      mEta_jEta2_expanded1 <- torch_unsqueeze(mEta_jEta2[,,,], dim=-1)
-      mEta_jEta2_expanded2 <- torch_unsqueeze(mEta_jEta2[,,,], dim=-2)
+      for (s2 in 1:2) {mEta_jEta2[,,s2,] <- mEta[,t+1,,] - jEta2[,t,,s2,]}
+      mEta_jEta2_expanded1 <- torch_unsqueeze(mEta_jEta2, dim=-1)
+      mEta_jEta2_expanded2 <- torch_unsqueeze(mEta_jEta2, dim=-2)
       mEta_jEta2_square <- torch_matmul(mEta_jEta2_expanded1, mEta_jEta2_expanded2)
       
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
-      for (jnf in 1:nrow(jNf)) {W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,, jNf$f1[jnf], jNf$f2[jnf]]} } } }
+      for (jnf in 1:nrow(jNf)) {
+        f1 <- jNf$f1[jnf]
+        f2 <- jNf$f2[jnf] 
+        mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,,f1,f2], dim=3) } } } }
 
 
