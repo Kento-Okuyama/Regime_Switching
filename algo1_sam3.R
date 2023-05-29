@@ -134,7 +134,7 @@ for (init in 1:nInit) {
     jS <- expand.grid(s1=c(1,2), s2=c(1,2))
     # step 6:
     # for (t in 1:Nt) { 
-    for (t in 1:3) {
+    for (t in 1:Nt) {
       # step 7: Kalman Filter
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
@@ -155,11 +155,18 @@ for (init in 1:nInit) {
         jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 2, 1), jP[,t,s1,s2,,]), Lmd[[s1]]) + R[[s1]] # Eq.6
         
         for (noNaRow in noNaRows[[t]]) {
-          Ks <- torch_matmul(torch_matmul(jP[noNaRow,t,s1,s2,,], Lmd[[s1]]), torch_inverse(jF[noNaRow,t,s1,s2,,]))
-          jEta2[noNaRow,t,s1,s2,] <- jEta[noNaRow,t,s1,s2,] + torch_matmul(Ks, jV[noNaRow,t,s1,s2,]) # Eq.7
-          KsLmd <- torch_matmul(Ks, torch_transpose(Lmd[[s1]], 2, 1))
-          for (f in 1:Nf) {KsLmd[f,f] <- max(KsLmd[f,f], 1 - epsilon)}
-          jP2[noNaRow,t,s1,s2,,] <- jP[noNaRow,t,s1,s2,,] - torch_matmul(KsLmd, jP[noNaRow,t,s1,s2,,]) } # Eq.8 
+          # kalman gain function
+          KG <- torch_matmul(torch_matmul(jP[noNaRow,t,s1,s2,,], Lmd[[s1]]), torch_inverse(jF[noNaRow,t,s1,s2,,]))
+          jEta2[noNaRow,t,s1,s2,] <- jEta[noNaRow,t,s1,s2,] + torch_matmul(KG, jV[noNaRow,t,s1,s2,]) # Eq.7
+          KGLmd <- torch_matmul(KG, torch_transpose(Lmd[[s1]], 2, 1))
+          # for numerical stability: ensure the diagonal element of KGLmd to be between -1 and 1
+          for (f in 1:Nf) {KGLmd[f,f] <- max(min(KGLmd[f,f], 1 - epsilon), epsilon)} # KGLmd needs to be adjusted to avoid numerical error
+          # for numerical stability: ensure symmetry for KGLmdP
+          KGLmdP <- (torch_matmul(KGLmd, jP[noNaRow,t,s1,s2,,]) + torch_transpose(torch_matmul(KGLmd, jP[noNaRow,t,s1,s2,,]), 2, 1)) / 2
+          #############################################
+          # may not be psd -- cholesky decomposition?
+          #############################################
+          jP2[noNaRow,t,s1,s2,,] <- jP[noNaRow,t,s1,s2,,] - KGLmdP } # Eq.8 
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
@@ -168,14 +175,11 @@ for (init in 1:nInit) {
         # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
         # is likelihood function different because I am dealing with latent variables instead of observed variables?
         for (noNaRow in noNaRows[[t]]) {
-          ######################
-          ## det(P) < 0 why?? ##
-          ######################
           jLik[noNaRow,t,s1,s2] <- 
-            torch_exp(-.5 * torch_matmul(torch_matmul(jDelta[noNaRow,t,s1,s2,], torch_pinverse(jP[noNaRow,t,s1,s2,,])), jDelta[noNaRow,t,s1,s2,])) 
-          jLik[noNaRow,t,s1,s2] <- jLik[noNaRow,t,s1,s2] * (-.5*pi)**(-Nf/2) * torch_det(jP[noNaRow,t,s1,s2,,])**(-.5) } 
+            torch_exp(-.5 * torch_matmul(torch_matmul(jDelta[noNaRow,t,s1,s2,], torch_inverse(jP[noNaRow,t,s1,s2,,])), jDelta[noNaRow,t,s1,s2,])) 
+          jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], epsilon**(-1)) * (-.5*pi)**(-Nf/2) * torch_det(jP[noNaRow,t,s1,s2,,])**(-.5) } 
         
-        for (i in 1:N) {print(paste0('(i,t,s1,s2): (', i, ', ', t, ', ', s1, ',', s2, '): ', as.numeric(torch_det(jP[i,t,s1,s2,,])) < 0))} } # Eq.11
+        for (i in 1:N) {print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', as.numeric(torch_det(jP[i,t,s1,s2,,])) < 0))} } # Eq.11
       
       # step 9: transition probability P(s|s',eta_{t-1})  
       if (t == 1) {
@@ -203,8 +207,8 @@ for (init in 1:nInit) {
         for (noNaRow in noNaRows[[t]]) {
           mLik[noNaRow,t] <- torch_sum(jLik[noNaRow,t,,] * jPr[noNaRow,t,,])
         # (updated) joint probability P(s,s'|eta_{t})
-        jPr2[noNaRow,t,,] <- jLik[noNaRow,t,,] * jPr[noNaRow,t,,] / max(mLik[noNaRow,t], epsilon)
-        if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) == 0) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} } }
+          jPr2[noNaRow,t,,] <- jLik[noNaRow,t,,] * jPr[noNaRow,t,,] / max(mLik[noNaRow,t], epsilon)
+          if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) == 0) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} } }
       for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- jPr[naRow,t,,]}
       mPr[,t+1] <- torch_sum(jPr2[,t,2,], dim=2)
       
@@ -228,5 +232,3 @@ for (init in 1:nInit) {
         f1 <- jNf$f1[jnf]
         f2 <- jNf$f2[jnf] 
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,,f1,f2], dim=3) } } } }
-
-
