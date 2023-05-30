@@ -3,12 +3,13 @@
 PSD matrix is required for covariance matrix,
 but they become singular in the iterative process
 
-(use of torch_clone?)
+det(jP2) becomes negative -- why?
+werid thing is: 
 
-why determinant small?
+both jP and I-KGLmd are positive semi-definite (psd)
+- det(jP) is positive
+- det(I-KGLmd) is positive
 
-different initialization
-no missing values
-huge colinearity
+Hence jP2 should also be psd by theory
 
-mP covariance of 0? makes no sense?
+Tried with data without missing values, still not working
