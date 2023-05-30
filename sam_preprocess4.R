@@ -132,6 +132,22 @@ y3D[,,nC3D][y3D[,,nC3D] == 1e30] <- -1e30
 # fill NA cells with -1e30
 y3D[is.na(y3D)] <- -1e30
 
+###########################################################
+# impute missing data using a most recent available entry #
+###########################################################
+
+# NA values are temporarily filled with negative values
+# table(y3D)
+
+# for (t in 2:Nt) {
+#   for (i in 1:N) {
+#     for (col in 1:nC3D) {
+#       if (y3D[i,t-1,col] < 0) {next}
+#       if (y3D[i,t,col] < 0) {y3D[i,t,col] <- y3D[i,t-1,col] } } } }
+
+# there are less dropout = -1e30
+# table(y3D)
+
 ######################
 # delete switch back #
 ######################

@@ -21,7 +21,7 @@ nInit <- 1
 # max number of optimization steps
 nIter <- 1
 # a very small number
-epsilon <- 1e-3
+epsilon <- 1e-2
 
 ###################################
 # s=1: non-drop out state 
@@ -82,13 +82,13 @@ for (init in 1:nInit) {
   beta1 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   beta2 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   beta <- list(beta1, beta2)
-  Q1d <- torch_tensor(torch_randn(Nf)**2, requires_grad=TRUE)
-  Q2d <- torch_tensor(torch_randn(Nf)**2, requires_grad=TRUE)
+  Q1d <- torch_tensor(torch_randn(Nf)**2 + epsilon, requires_grad=TRUE)
+  Q2d <- torch_tensor(torch_randn(Nf)**2 + epsilon, requires_grad=TRUE)
   Q1 <- torch_diag(Q1d)
   Q2 <- torch_diag(Q2d)
   Q <- list(Q1, Q2)
-  R1d <- torch_tensor(torch_randn(No)**2, requires_grad=TRUE)
-  R2d <- torch_tensor(torch_randn(No)**2, requires_grad=TRUE)
+  R1d <- torch_tensor(torch_randn(No)**2 + epsilon, requires_grad=TRUE)
+  R2d <- torch_tensor(torch_randn(No)**2 + epsilon, requires_grad=TRUE)
   R1 <- torch_diag(R1d)
   R2 <- torch_diag(R2d)
   R <- list(R1, R2)
@@ -119,11 +119,12 @@ for (init in 1:nInit) {
   # rows that have NA values
   naRows <- list()
   
+  
   # step 4: initialize latent variables
   for (s in 1:2) {
     for (i in 1:N) {
       mEta[i,1,s,] <- rep(x=0, times=Nf)
-      mP[i,1,s,,] <- diag(x=1e3, nrow=Nf, ncol=Nf) } }
+      mP[i,1,s,,] <- diag(x=1e1, nrow=Nf, ncol=Nf)} }
   
   # while (count < 3) {
   for (iter in 1:nIter) {
@@ -137,6 +138,7 @@ for (init in 1:nInit) {
     # step 6:
     # for (t in 1:Nt) { 
     for (t in 1:Nt) {
+      print(paste0('   t=',t))
       # step 7: Kalman Filter
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
@@ -153,7 +155,7 @@ for (init in 1:nInit) {
         jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], mP[,t,s2,,]), B[[s1]]) + Q[[s1]] # Eq.4
         jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
         jP[,t,s1,s2,,] <- jP[,t,s1,s2,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-        for (i in 1:N){if (as.numeric(torch_det(jP[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))} 
+        for (i in 1:N){if (as.numeric(torch_det(jP[i,t,s1,s2,,])) < 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))} 
         jPChol[,t,s1,s2,,] <- torch_cholesky(jP[,t,s1,s2,,], upper=FALSE) # Cholesky decomposition
         
         for (noNaRow in noNaRows[[t]]) {
@@ -161,7 +163,7 @@ for (init in 1:nInit) {
         jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), jP[,t,s1,s2,,]), Lmd[[s1]]) + R[[s1]] # Eq.6
         jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
         jF[,t,s1,s2,,] <- jF[,t,s1,s2,,] + epsilon * torch_eye(No) # add a small constant to ensure p.s.d.
-        for (i in 1:N){if (as.numeric(torch_det(jF[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jF[i,t,s1,s2,,]) = ', as.numeric(torch_det(jF[i,t,s1,s2,,]))))} 
+        for (i in 1:N){if (as.numeric(torch_det(jF[i,t,s1,s2,,])) < 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jF[i,t,s1,s2,,]) = ', as.numeric(torch_det(jF[i,t,s1,s2,,]))))} 
         jFChol[,t,s1,s2,,] <- torch_cholesky(jF[,t,s1,s2,,], upper=FALSE)
         
         for (noNaRow in noNaRows[[t]]) {
@@ -169,19 +171,19 @@ for (init in 1:nInit) {
           KG <- torch_matmul(torch_matmul(jP[noNaRow,t,s1,s2,,], Lmd[[s1]]), torch_cholesky_inverse(jFChol[noNaRow,t,s1,s2,,], upper=FALSE))
           jEta2[noNaRow,t,s1,s2,] <- jEta[noNaRow,t,s1,s2,] + torch_matmul(KG, jV[noNaRow,t,s1,s2,]) # Eq.7
           KGLmd <- torch_matmul(KG, torch_transpose(Lmd[[s1]], 1, 2))
-          # for numerical stability: ensure the diagonal element of KGLmd to be between -1 and 1
-          for (f in 1:Nf) {KGLmd[f,f] <- KGLmd[f,f] - epsilon} # KGLmd needs to be adjusted to avoid numerical error
-          KGLmdP <- torch_matmul(KGLmd, jP[noNaRow,t,s1,s2,,]) 
-          KGLmdP <- (KGLmdP + torch_transpose(KGLmdP, 1, 2)) / 2 # ensure symmetry
-          jP2[noNaRow,t,s1,s2,,] <- jP[noNaRow,t,s1,s2,,] - KGLmdP } # Eq.8 
+          I_KGLmd <- torch_eye(Nf) - KGLmd
+          I_KGLmd <- I_KGLmd + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
+          I_KGLmd <- (I_KGLmd + torch_transpose(I_KGLmd, 1, 2)) / 2 # ensure symmetry
+          jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
           jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
           jP2[naRow,t,s1,s2,,] <- jP[naRow,t,s1,s2,,] } # Eq.8 (for missing entries)
-          for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(KGLmd[i,t,s1,s2,,]))))}
-          for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))}
-          for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP2[i,t,s1,s2,,]))))} 
+        
+        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(I-KGLmd) = ', as.numeric(torch_det(I_KGLmd))))}
+        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))}
+        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP2[i,t,s1,s2,,]))))} 
         
         # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
         # is likelihood function different because I am dealing with latent variables instead of observed variables?
@@ -237,7 +239,7 @@ for (init in 1:nInit) {
       mEta_jEta2_square <- torch_matmul(mEta_jEta2_expanded1, mEta_jEta2_expanded2)
       mEta_jEta2_square <- (mEta_jEta2_square + torch_transpose(mEta_jEta2_square, 4, 5)) / 2 # ensure symmetry
       mEta_jEta2_square <- mEta_jEta2_square + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-      for (i in 1:N) {if (as.numeric(torch_det(mEta_jEta2_square[i,s1,s2])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(mEta_jEta2_square[i,t,s1,s2]): ', as.numeric(torch_det(mEta_jEta2_square[i,s1,s2]))))}
+      for (i in 1:N) {if (as.numeric(torch_det(mEta_jEta2_square[i,s1,s2])) < 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(mEta_jEta2_square[i,t,s1,s2]): ', as.numeric(torch_det(mEta_jEta2_square[i,s1,s2]))))}
       
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
       for (jnf in 1:nrow(jNf)) {
@@ -246,7 +248,7 @@ for (init in 1:nInit) {
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,,f1,f2], dim=3) }
       mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
       mP[,t+1,,,] <- mP[,t+1,,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-      for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) < 0) print(paste0('(i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } 
+      for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) < 0) print(paste0('   (i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } 
     } } # continue to numerical optimization
   }
 
