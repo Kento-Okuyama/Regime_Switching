@@ -151,17 +151,16 @@ for (init in 1:nInit) {
         for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - jEta[noNaRow,t,s1,s2,]} # Eq.3
         
         jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], mP[,t,s2,,]), B[[s1]]) + Q[[s1]] # Eq.4
-        jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2
-        jP[,t,s1,s2,,] <- jP[,t,s1,s2,,] + epsilon * torch_eye(Nf)
+        jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
+        jP[,t,s1,s2,,] <- jP[,t,s1,s2,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
         for (i in 1:N){if (as.numeric(torch_det(jP[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))} 
         jPChol[,t,s1,s2,,] <- torch_cholesky(jP[,t,s1,s2,,], upper=FALSE) # Cholesky decomposition
         
         for (noNaRow in noNaRows[[t]]) {
           jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(jEta[noNaRow,t,s1,s2,], Lmd[[s1]]))} # Eq.5
-        
         jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), jP[,t,s1,s2,,]), Lmd[[s1]]) + R[[s1]] # Eq.6
-        jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2
-        jF[,t,s1,s2,,] <- jF[,t,s1,s2,,] + epsilon * torch_eye(No)
+        jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
+        jF[,t,s1,s2,,] <- jF[,t,s1,s2,,] + epsilon * torch_eye(No) # add a small constant to ensure p.s.d.
         for (i in 1:N){if (as.numeric(torch_det(jF[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jF[i,t,s1,s2,,]) = ', as.numeric(torch_det(jF[i,t,s1,s2,,]))))} 
         jFChol[,t,s1,s2,,] <- torch_cholesky(jF[,t,s1,s2,,], upper=FALSE)
         
@@ -172,11 +171,10 @@ for (init in 1:nInit) {
           KGLmd <- torch_matmul(KG, torch_transpose(Lmd[[s1]], 1, 2))
           # for numerical stability: ensure the diagonal element of KGLmd to be between -1 and 1
           for (f in 1:Nf) {KGLmd[f,f] <- KGLmd[f,f] - epsilon} # KGLmd needs to be adjusted to avoid numerical error
-          # for numerical stability: ensure symmetry for KGLmdP
           KGLmdP <- torch_matmul(KGLmd, jP[noNaRow,t,s1,s2,,]) 
-          KGLmdP <- (KGLmdP + torch_transpose(KGLmdP, 1, 2)) / 2
+          KGLmdP <- (KGLmdP + torch_transpose(KGLmdP, 1, 2)) / 2 # ensure symmetry
           jP2[noNaRow,t,s1,s2,,] <- jP[noNaRow,t,s1,s2,,] - KGLmdP } # Eq.8 
-          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsilon * torch_eye(Nf)
+          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
@@ -235,8 +233,8 @@ for (init in 1:nInit) {
       mEta_jEta2_expanded1 <- torch_unsqueeze(mEta_jEta2, dim=-1)
       mEta_jEta2_expanded2 <- torch_unsqueeze(mEta_jEta2, dim=-2)
       mEta_jEta2_square <- torch_matmul(mEta_jEta2_expanded1, mEta_jEta2_expanded2)
-      mEta_jEta2_square <- (mEta_jEta2_square + torch_transpose(mEta_jEta2_square, 4, 5)) / 2
-      mEta_jEta2_square <- mEta_jEta2_square + epsilon * torch_eye(Nf)
+      mEta_jEta2_square <- (mEta_jEta2_square + torch_transpose(mEta_jEta2_square, 4, 5)) / 2 # ensure symmetry
+      mEta_jEta2_square <- mEta_jEta2_square + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
       for (i in 1:N) {if (as.numeric(torch_det(mEta_jEta2_square[i,s1,s2])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(mEta_jEta2_square[i,t,s1,s2]): ', as.numeric(torch_det(mEta_jEta2_square[i,s1,s2]))))}
       
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
@@ -244,8 +242,8 @@ for (init in 1:nInit) {
         f1 <- jNf$f1[jnf]
         f2 <- jNf$f2[jnf] 
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,,f1,f2], dim=3) }
-      mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2
-      mP[,t+1,,,] <- mP[,t+1,,,] + epsilon * torch_eye(Nf) 
+      mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
+      mP[,t+1,,,] <- mP[,t+1,,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
       for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) < 0) print(paste0('(i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } 
       } } }
 
