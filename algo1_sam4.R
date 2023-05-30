@@ -179,7 +179,9 @@ for (init in 1:nInit) {
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
           jP2[naRow,t,s1,s2,,] <- jP[naRow,t,s1,s2,,] } # Eq.8 (for missing entries)
-        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP2[i,t,s1,s2,,]))))} 
+          for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(KGLmd[i,t,s1,s2,,]))))}
+          for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))}
+          for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) < 0) print(paste0('(i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP2[i,t,s1,s2,,]))))} 
         
         # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
         # is likelihood function different because I am dealing with latent variables instead of observed variables?
@@ -245,5 +247,7 @@ for (init in 1:nInit) {
       mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
       mP[,t+1,,,] <- mP[,t+1,,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
       for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) < 0) print(paste0('(i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } 
-      } } }
+    } } # continue to numerical optimization
+  }
+
 
