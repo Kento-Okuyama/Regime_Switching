@@ -136,8 +136,7 @@ for (init in 1:nInit) {
     # store the pair (s,s') as data frame 
     jS <- expand.grid(s1=c(1,2), s2=c(1,2))
     # step 6:
-    # for (t in 1:Nt) { 
-    for (t in 1:Nt) {
+    for (t in 1:Nt) { 
       print(paste0('   t=',t))
       # step 7: Kalman Filter
       for (js in 1:nrow(jS)) {
@@ -173,9 +172,9 @@ for (init in 1:nInit) {
           KGLmd <- torch_matmul(KG, torch_transpose(Lmd[[s1]], 1, 2))
           I_KGLmd <- torch_eye(Nf) - KGLmd
           I_KGLmd <- I_KGLmd + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-          I_KGLmd <- (I_KGLmd + torch_transpose(I_KGLmd, 1, 2)) / 2 # ensure symmetry
-          jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
-          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
+          # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
+          jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,]), torch_transpose(I_KGLmd, 1, 2)) + torch_matmul(torch_matmul(KG, R[[s1]]), torch_transpose(KG, 1, 2)) # Eq.9
+          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsilon * torch_eye(Nf) } # add a small constant to ensure p.s.d.
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
@@ -248,8 +247,8 @@ for (init in 1:nInit) {
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,,f1,f2], dim=3) }
       mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
       mP[,t+1,,,] <- mP[,t+1,,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-      for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) < 0) print(paste0('   (i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } 
-    } } # continue to numerical optimization
-  }
+      for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) < 0) print(paste0('   (i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } } 
+  } # continue to numerical re-optimization
+} # continue to re-initialization of parameters
 
 

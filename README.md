@@ -13,3 +13,5 @@ both jP and I-KGLmd are positive semi-definite (psd)
 Hence jP2 should also be psd by theory
 
 Tried with data without missing values, still not working
+
+Joseph form of Kalman Filter?
