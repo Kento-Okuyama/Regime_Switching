@@ -14,4 +14,4 @@ Hence jP2 should also be psd by theory
 
 Tried with data without missing values, still not working
 
-Joseph form of Kalman Filter?
+Joseph form of Kalman Filter? -> solved the issue with jP2 
