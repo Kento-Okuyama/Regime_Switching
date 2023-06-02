@@ -21,8 +21,8 @@ nInit <- 1
 # max number of optimization steps
 nIter <- 1
 # a very small number
-epsilon <- 1e-2
-epsD <- 1 - epsilon 
+epsilon <- 1e-6
+epsD <- 1e-2 
 ceil <- 1e6
 ###################################
 # s=1: non-drop out state 
@@ -63,16 +63,16 @@ for (init in 1:nInit) {
   a1 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE) 
   a2 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE) 
   a <- list(a1, a2)
-  B1d <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
-  B2d <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
+  B1d <- torch_tensor(torch_rand(Nf), requires_grad=TRUE)
+  B2d <- torch_tensor(torch_rand(Nf), requires_grad=TRUE)
   B1 <- torch_diag(B1d)
   B2 <- torch_diag(B2d)
   B <- list(B1, B2)
   k1 <- torch_tensor(torch_randn(No), requires_grad=TRUE)
   k2 <- torch_tensor(torch_randn(No), requires_grad=TRUE)
   k <- list(k1, k2)
-  Lmd1v <- torch_tensor(torch_randn(No), requires_grad=TRUE)
-  Lmd2v <- torch_tensor(torch_randn(No), requires_grad=TRUE)
+  Lmd1v <- torch_tensor(torch_rand(No), requires_grad=TRUE)
+  Lmd2v <- torch_tensor(torch_rand(No), requires_grad=TRUE)
   Lmd1 <- Lmd2 <- torch_full(c(Nf,No), 0)
   Lmd1[1,1:3] <- Lmd1v[1:3]; Lmd1[2,4:5] <- Lmd1v[4:5]
   Lmd1[3,6:7] <- Lmd1v[6:7]; Lmd1[4,8:9] <- Lmd1v[8:9]
@@ -89,13 +89,13 @@ for (init in 1:nInit) {
   beta1 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   beta2 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   beta <- list(beta1, beta2)
-  Q1d <- torch_tensor(torch_randn(Nf)**2 + epsD, requires_grad=TRUE)
-  Q2d <- torch_tensor(torch_randn(Nf)**2 + epsD, requires_grad=TRUE)
+  Q1d <- torch_tensor(torch_rand(Nf)**2, requires_grad=TRUE)
+  Q2d <- torch_tensor(torch_rand(Nf)**2, requires_grad=TRUE)
   Q1 <- torch_diag(Q1d)
   Q2 <- torch_diag(Q2d)
   Q <- list(Q1, Q2)
-  R1d <- torch_tensor(torch_randn(No)**2 + epsD, requires_grad=TRUE)
-  R2d <- torch_tensor(torch_randn(No)**2 + epsD, requires_grad=TRUE)
+  R1d <- torch_tensor(torch_rand(No)**2, requires_grad=TRUE)
+  R2d <- torch_tensor(torch_rand(No)**2, requires_grad=TRUE)
   R1 <- torch_diag(R1d)
   R2 <- torch_diag(R2d)
   R <- list(R1, R2)
@@ -131,7 +131,7 @@ for (init in 1:nInit) {
   for (s in 1:2) {
     for (i in 1:N) {
       mEta[i,1,s,] <- rep(x=0, times=Nf)
-      mP[i,1,s,,] <- diag(x=1, nrow=Nf, ncol=Nf)} }
+      mP[i,1,s,,] <- diag(x=1e1, nrow=Nf, ncol=Nf)} }
   
   # while (count < 3) {
   for (iter in 1:nIter) {
