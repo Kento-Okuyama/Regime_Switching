@@ -22,7 +22,8 @@ nInit <- 1
 nIter <- 1
 # a very small number
 epsilon <- 1e-2
-
+epsD <- 1 - epsilon 
+ceil <- 1e6
 ###################################
 # s=1: non-drop out state 
 # s=2: drop out state      
@@ -88,13 +89,13 @@ for (init in 1:nInit) {
   beta1 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   beta2 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE)
   beta <- list(beta1, beta2)
-  Q1d <- torch_tensor(torch_randn(Nf)**2 + epsilon, requires_grad=TRUE)
-  Q2d <- torch_tensor(torch_randn(Nf)**2 + epsilon, requires_grad=TRUE)
+  Q1d <- torch_tensor(torch_randn(Nf)**2 + epsD, requires_grad=TRUE)
+  Q2d <- torch_tensor(torch_randn(Nf)**2 + epsD, requires_grad=TRUE)
   Q1 <- torch_diag(Q1d)
   Q2 <- torch_diag(Q2d)
   Q <- list(Q1, Q2)
-  R1d <- torch_tensor(torch_randn(No)**2 + epsilon, requires_grad=TRUE)
-  R2d <- torch_tensor(torch_randn(No)**2 + epsilon, requires_grad=TRUE)
+  R1d <- torch_tensor(torch_randn(No)**2 + epsD, requires_grad=TRUE)
+  R2d <- torch_tensor(torch_randn(No)**2 + epsD, requires_grad=TRUE)
   R1 <- torch_diag(R1d)
   R2 <- torch_diag(R2d)
   R <- list(R1, R2)
@@ -159,17 +160,21 @@ for (init in 1:nInit) {
         
         jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], mP[,t,s2,,]), B[[s1]]) + Q[[s1]] # Eq.4
         jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
-        jP[,t,s1,s2,,] <- jP[,t,s1,s2,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-        for (i in 1:N){if (as.numeric(torch_det(jP[i,t,s1,s2,,])) <= 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))} 
+        while (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
+          jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
+          for (ind in jPInd) {jP[ind,t,s1,s2,,] <- jP[ind,t,s1,s2,,] + epsD * torch_eye(Nf)} } # add a small constant to ensure p.s.d.
+        print('error at jPChol')
         jPChol[,t,s1,s2,,] <- torch_cholesky(jP[,t,s1,s2,,], upper=FALSE) # Cholesky decomposition
         
         for (noNaRow in noNaRows[[t]]) {
           jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(jEta[noNaRow,t,s1,s2,], Lmd[[s1]]))} # Eq.5
         jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), jP[,t,s1,s2,,]), Lmd[[s1]]) + R[[s1]] # Eq.6
         jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
-        jF[,t,s1,s2,,] <- jF[,t,s1,s2,,] + epsilon * torch_eye(No) # add a small constant to ensure p.s.d.
-        for (i in 1:N){if (as.numeric(torch_det(jF[i,t,s1,s2,,])) <= 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jF[i,t,s1,s2,,]) = ', as.numeric(torch_det(jF[i,t,s1,s2,,]))))} 
-        jFChol[,t,s1,s2,,] <- torch_cholesky(jF[,t,s1,s2,,], upper=FALSE)
+        while (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
+          jFInd <- which(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon)
+          for (ind in jFInd) {jF[ind,t,s1,s2,,] <- jF[ind,t,s1,s2,,] + epsD * torch_eye(No)} } # add a small constant to ensure p.s.d.
+        print('error at jFChol')
+        jFChol[,t,s1,s2,,] <- torch_cholesky(jF[,t,s1,s2,,], upper=FALSE) # Cholesky decomposition
         
         for (noNaRow in noNaRows[[t]]) {
           # kalman gain function
@@ -177,10 +182,10 @@ for (init in 1:nInit) {
           jEta2[noNaRow,t,s1,s2,] <- jEta[noNaRow,t,s1,s2,] + torch_matmul(KG, jV[noNaRow,t,s1,s2,]) # Eq.7
           KGLmd <- torch_matmul(KG, torch_transpose(Lmd[[s1]], 1, 2))
           I_KGLmd <- torch_eye(Nf) - KGLmd
-          I_KGLmd <- I_KGLmd + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
+          I_KGLmd <- I_KGLmd + epsD * torch_eye(Nf) # add a small constant to ensure p.s.d.
           # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
           jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,]), torch_transpose(I_KGLmd, 1, 2)) + torch_matmul(torch_matmul(KG, R[[s1]]), torch_transpose(KG, 1, 2)) # Eq.9
-          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsilon * torch_eye(Nf) } # add a small constant to ensure p.s.d.
+          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsD * torch_eye(Nf) } # add a small constant to ensure p.s.d.
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
@@ -195,7 +200,7 @@ for (init in 1:nInit) {
         for (noNaRow in noNaRows[[t]]) {
           jLik[noNaRow,t,s1,s2] <- 
             torch_exp(-.5 * torch_matmul(torch_matmul(jDelta[noNaRow,t,s1,s2,], torch_cholesky_inverse(jPChol[noNaRow,t,s1,s2,,], upper=FALSE)), jDelta[noNaRow,t,s1,s2,])) 
-          jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], epsilon**(-1)) * (-.5*pi)**(-Nf/2) * torch_prod(torch_diag(jPChol[noNaRow,t,s1,s2,,]))**(-1)} } # Eq.11
+          jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], ceil) * (-.5*pi)**(-Nf/2) * torch_prod(torch_diag(jPChol[noNaRow,t,s1,s2,,]))**(-1)} } # Eq.12
       
       # step 9: transition probability P(s|s',eta_{t-1})  
       if (t == 1) {
@@ -237,24 +242,29 @@ for (init in 1:nInit) {
       
       for (f in 1:Nf) {mEta[,t+1,,f] <- torch_sum(W[,t,,] * jEta2[,t,,,f], dim=3)}
       
-      mEta_jEta2 <- torch_full_like(jEta2[,t,,,], NaN)
-      for (s2 in 1:2) {mEta_jEta2[,,s2,] <- mEta[,t+1,,] - jEta2[,t,,s2,]}
-      mEta_jEta2_expanded1 <- torch_unsqueeze(mEta_jEta2, dim=-1)
-      mEta_jEta2_expanded2 <- torch_unsqueeze(mEta_jEta2, dim=-2)
-      mEta_jEta2_square <- torch_matmul(mEta_jEta2_expanded1, mEta_jEta2_expanded2)
-      mEta_jEta2_square <- (mEta_jEta2_square + torch_transpose(mEta_jEta2_square, 4, 5)) / 2 # ensure symmetry
-      mEta_jEta2_square <- mEta_jEta2_square + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
-      for (i in 1:N) {if (as.numeric(torch_det(mEta_jEta2_square[i,s1,s2])) <= 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(mEta_jEta2_square[i,t,s1,s2]): ', as.numeric(torch_det(mEta_jEta2_square[i,s1,s2]))))}
+      subEta <- torch_full_like(jEta2[,t,,,], NaN)
+      for (s2 in 1:2) {subEta[,,s2,] <- mEta[,t+1,,] - jEta2[,t,,s2,]}
+      subEta1 <- torch_unsqueeze(subEta, dim=-1)
+      subEta2 <- torch_unsqueeze(subEta, dim=-2)
+      subEtaSq <- torch_matmul(subEta1, subEta2)
+      subEtaSq <- (subEtaSq + torch_transpose(subEtaSq, 4, 5)) / 2 # ensure symmetry
+
+      for (js in 1:nrow(jS)) {
+        s1 <- jS$s1[js]
+        s2 <- jS$s2[js]
+        while (sum(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon) > 0) {
+          subEtaSqInd <- which(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon)
+          for (ind in subEtaSqInd) {
+            subEtaSq[ind,s1,s2,,] <- subEtaSq[ind,s1,s2,,] + epsD * torch_eye(Nf)} } } # add a small constant to ensure p.s.d.
       
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
       for (jnf in 1:nrow(jNf)) {
         f1 <- jNf$f1[jnf]
         f2 <- jNf$f2[jnf] 
-        mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + mEta_jEta2_square)[,,,f1,f2], dim=3) }
+        mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + subEtaSq)[,,,f1,f2], dim=3) }
       mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
-      mP[,t+1,,,] <- mP[,t+1,,,] + epsilon * torch_eye(Nf) # add a small constant to ensure p.s.d.
+      mP[,t+1,,,] <- mP[,t+1,,,] + epsD * torch_eye(Nf) # add a small constant to ensure p.s.d.
       for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) <= 0) print(paste0('   (i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } } 
   } # continue to numerical re-optimization
 } # continue to re-initialization of parameters
-
 
