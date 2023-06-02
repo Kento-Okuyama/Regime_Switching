@@ -21,4 +21,5 @@ Solved by changing the parameter initializations for **B** and **Lmd**
 
 3. to do
 
+how to aggreate the likelihood function where possibly FIML can help
 adding Adam?
