@@ -182,18 +182,15 @@ for (init in 1:nInit) {
           jEta2[noNaRow,t,s1,s2,] <- jEta[noNaRow,t,s1,s2,] + torch_matmul(KG, jV[noNaRow,t,s1,s2,]) # Eq.7
           KGLmd <- torch_matmul(KG, torch_transpose(Lmd[[s1]], 1, 2))
           I_KGLmd <- torch_eye(Nf) - KGLmd
-          I_KGLmd <- I_KGLmd + epsD * torch_eye(Nf) # add a small constant to ensure p.s.d.
+
           # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
           jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,]), torch_transpose(I_KGLmd, 1, 2)) + torch_matmul(torch_matmul(KG, R[[s1]]), torch_transpose(KG, 1, 2)) # Eq.9
-          jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsD * torch_eye(Nf) } # add a small constant to ensure p.s.d.
-        
+          while (as.numeric(torch_det(jP2[noNaRow,t,s1,s2,,])) < epsilon) {
+            jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsD * torch_eye(Nf)} } # add a small constant to ensure p.s.d.
+          
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
           jP2[naRow,t,s1,s2,,] <- jP[naRow,t,s1,s2,,] } # Eq.8 (for missing entries)
-        
-        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) <= 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(I-KGLmd) = ', as.numeric(torch_det(I_KGLmd))))}
-        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) <= 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP[i,t,s1,s2,,]))))}
-        for (i in 1:N){if (as.numeric(torch_det(jP2[i,t,s1,s2,,])) <= 0) print(paste0('   (i,t,s1,s2): (', i, ',', t, ',', s1, ',', s2, '): ', 'det(jP2[i,t,s1,s2,,]) = ', as.numeric(torch_det(jP2[i,t,s1,s2,,]))))} 
         
         # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
         # is likelihood function different because I am dealing with latent variables instead of observed variables?
@@ -263,8 +260,13 @@ for (init in 1:nInit) {
         f2 <- jNf$f2[jnf] 
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + subEtaSq)[,,,f1,f2], dim=3) }
       mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
-      mP[,t+1,,,] <- mP[,t+1,,,] + epsD * torch_eye(Nf) # add a small constant to ensure p.s.d.
-      for (i in 1:N) {for (s in 1:2) {if (as.numeric(torch_det(mP[i,t,s1,,])) <= 0) print(paste0('   (i,t,s1): (', i, ',', t, ',', s1, '): ', 'det(mP[i,t,s1,,]) = ', as.numeric(torch_det(mP[i,t,s1,,]))))} } } 
+
+      for (s1 in 1:2) {
+        while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
+          mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
+          for (ind in mPInd) {
+            mP[ind,t+1,s1,,] <- mP[ind,t+1,s1,,] + epsD * torch_eye(Nf)} } } } # add a small constant to ensure p.s.d.
+    
   } # continue to numerical re-optimization
 } # continue to re-initialization of parameters
 
