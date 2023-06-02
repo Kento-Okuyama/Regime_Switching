@@ -1,9 +1,8 @@
 # Regime_Switching
 
-PSD matrix is required for covariance matrix,
-but they become singular in the iterative process
+General problem: PSD matrix is required for covariance matrix, but they become singular in the iterative process for some reason, hence halts the algorithm.
 
-det(jP2) becomes negative -- why?
+1. det(jP2) becomes negative -- why?
 werid thing is: 
 
 both jP and I-KGLmd are positive semi-definite (psd)
@@ -14,4 +13,12 @@ Hence jP2 should also be psd by theory
 
 Tried with data without missing values, still not working
 
-Joseph form of Kalman Filter? -> solved the issue with jP2 
+**Joseph form of Kalman Filter solved the issue with jP2**
+
+2. some of the det(jF) elements cannot be computed -- why?
+
+Solved by changing the parameter initializations for **B** and **Lmd**
+
+3. to do
+
+adding Adam?
