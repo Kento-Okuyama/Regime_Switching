@@ -261,7 +261,7 @@ for (init in 1:nInit) {
         print('   optimizaiton terminated: gradient has nan values')
         break }
       
-      # run adam function detorch finied above
+      # run adam function definied above
       result <- adam(theta, grad, iter, m, v)
       # update parameters
       theta <- result$theta
