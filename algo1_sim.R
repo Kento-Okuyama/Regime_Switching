@@ -1,6 +1,6 @@
-# install.packages("torch")
+# install.packages('torch')
 library(torch)
-# install.packages("reticulate")
+# install.packages('reticulate')
 library(reticulate)
 
 epsilon <- 1e-30
@@ -60,7 +60,6 @@ sumLikBestNow <- epsilon
 thetaBestNow <- torch_full(nparams, NaN)
 ythBest <-  torch_full(c(N, Nt), NaN)
 mPrBest <-  torch_full(c(N, Nt), NaN)
-
 
 ###################################
 # Algorithm 1
@@ -210,7 +209,7 @@ for (init in 1:nInit) {
       # step 10 (continuation)
       mEta[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * torch_clone(jEta2[,t,,]), dim=3)
       mEtaVec <- torch_cat(list(torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3), torch_unsqueeze(torch_clone(mEta[,t+1,]), dim=3)), dim=3)
-      mP[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * ( torch_clone(jP2[,t,,]) + (mEtaVec - torch_clone(jEta2[,t,,]))**2 ), dim=3)
+      mP[,t+1,] <- torch_sum(torch_clone(W[,t,,]) * (torch_clone(jP2[,t,,]) + (mEtaVec - torch_clone(jEta2[,t,,]))**2), dim=3)
       
     } # this line relates to the beginning of step 5
     
@@ -292,7 +291,7 @@ print(paste0('Best sum likelihood = ', sumLikBest[[1]]))
 thetaBest <- as.data.frame(t(as.matrix(thetaBest)))
 colnames(thetaBest) <- c('a1', 'a2', 'b1', 'b2', 'k1', 'k2', 'Lmd1', 'Lmd2', 'alpha1', 'alpha2', 'beta', 'Q1', 'Q2', 'R1', 'R2')
 print('Optimal parameters found:')
-print(paste0(colnames(thetaBest), ": ", as.matrix(thetaBest)))
+print(paste0(colnames(thetaBest), ': ', as.matrix(thetaBest)))
 
 print('yt (true scores):')
 print(yt)

@@ -9,9 +9,9 @@
 ## intra- and inter-individual latent factors
 #########################
 
-# install.packages("torch")
+# install.packages('torch')
 library(torch)
-# install.packages("reticulate")
+# install.packages('reticulate')
 library(reticulate)
 
 # for reproducibility 
@@ -44,6 +44,10 @@ eta <- (eta - etaMean) / etaSd
 for (t in 1:Nt) {
   for (i in 1:N) {eta[i,t,] <- eta[i,t,] - colMeans(eta[,1,])} }
 Nf <- dim(eta)[3]
+
+# f(Y|theta)
+sumLik <- list()
+sumLikBest <- 0
 
 ###################################
 # Algorithm 1
@@ -252,8 +256,6 @@ for (init in 1:nInit) {
           for (ind in subEtaSqInd) {
             subEtaSq[ind,s1,s2,,] <- subEtaSq[ind,s1,s2,,] + epsD * torch_eye(Nf) } } } # add a small constant to ensure p.s.d.
       
-      print('ok2')
-      
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
       for (jnf in 1:nrow(jNf)) {
         f1 <- jNf$f1[jnf]
@@ -261,13 +263,32 @@ for (init in 1:nInit) {
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + subEtaSq)[,,,f1,f2], dim=3) }
       mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
 
-      print('ok1') 
-      
       for (s1 in 1:2) {
         while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
           mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
           for (ind in mPInd) {
             mP[ind,t+1,s1,,] <- mP[ind,t+1,s1,,] + epsD * torch_eye(Nf) } } } } # add a small constant to ensure p.s.d.
+    
+    # aggregated (summed) likelihood at each optimization step
+    sumLik[iter] <- as.numeric(torch_nansum(mLik))
+    
+    # stopping criterion
+    if (sumLik[iter][[1]] - sumLik[1][[1]] != 0) {
+      crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
+    else {crit <- 0}
+    
+    # add count if the new sumLik does not beat the best score
+    if (crit < epsD) {count <- count + 1}
+    else {count <- 0}
+    
+    if (count==3) {print('   stopping criterion is met'); break}
+    print(paste0('   sum likelihood = ', sumLik[iter]))
+    
+    # backward propagation
+    torch_nansum(mLik)$backward(retain_graph=TRUE)
+    
+    # store gradients
+    grad <- torch_cat(list(a1$grad, a2$grad, B1d$grad, B2d$grad, k1$grad, k2$grad, Lmd1v$grad, Lmd2v$grad, alpha1$grad, alpha2$grad, beta1$grad, beta2$grad, Q1d$grad, Q2d$grad, R1d$grad, R2d$grad))
     
   } # continue to numerical re-optimization
 } # continue to re-initialization of parameters
