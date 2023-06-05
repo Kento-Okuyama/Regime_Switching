@@ -17,9 +17,10 @@ Tried with data without missing values, still not working
 
 2. some of the det(jF) elements cannot be computed -- why?
 
-Solved by changing the parameter initializations for **B** and **Lmd**
+Solved by changing the parameter initializations for **B** and **Lmd** as that keeps the numerical overflow of jF
 
 3. to do
 
-how to aggreate the likelihood function where possibly FIML can help
-adding Adam?
+- how to aggreate the likelihood function where possibly FIML can help
+- taking gradients
+- adding Adam?
