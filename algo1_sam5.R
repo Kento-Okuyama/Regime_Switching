@@ -163,19 +163,19 @@ for (init in 1:nInit) {
         for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - jEta[noNaRow,t,s1,s2,]} # Eq.3
         
         jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], mP[,t,s2,,]), B[[s1]]) + Q[[s1]] # Eq.4
-        jP[,t,s1,s2,,] <- (torch_clone(jP[,t,s1,s2,,]) + torch_transpose(torch_clone(jP[,t,s1,s2,,]), 2, 3)) / 2 # ensure symmetry
+        jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
         while (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
           jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
-          for (ind in jPInd) {jP[ind,t,s1,s2,,] <- torch_clone(jP[ind,t,s1,s2,,]) + epsD * torch_eye(Nf)} } # add a small constant to ensure p.s.d.
+          for (ind in jPInd) {jP[ind,t,s1,s2,,] <- jP[ind,t,s1,s2,,] + epsD * torch_eye(Nf)} } # add a small constant to ensure p.s.d.
         jPChol[,t,s1,s2,,] <- torch_cholesky(jP[,t,s1,s2,,], upper=FALSE) # Cholesky decomposition
         
         for (noNaRow in noNaRows[[t]]) {
           jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(jEta[noNaRow,t,s1,s2,], Lmd[[s1]]))} # Eq.5
         jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), jP[,t,s1,s2,,]), Lmd[[s1]]) + R[[s1]] # Eq.6
-        jF[,t,s1,s2,,] <- (torch_clone(jF[,t,s1,s2,,]) + torch_transpose(torch_clone(jF[,t,s1,s2,,]), 2, 3)) / 2 # ensure symmetry
+        jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
         while (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
           jFInd <- which(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon)
-          for (ind in jFInd) {jF[ind,t,s1,s2,,] <- torch_clone(jF[ind,t,s1,s2,,]) + epsD * torch_eye(No)} } # add a small constant to ensure p.s.d.
+          for (ind in jFInd) {jF[ind,t,s1,s2,,] <- jF[ind,t,s1,s2,,] + epsD * torch_eye(No)} } # add a small constant to ensure p.s.d.
         jFChol[,t,s1,s2,,] <- torch_cholesky(jF[,t,s1,s2,,], upper=FALSE) # Cholesky decomposition
         
         for (noNaRow in noNaRows[[t]]) {
@@ -188,7 +188,7 @@ for (init in 1:nInit) {
           # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
           jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,]), torch_transpose(I_KGLmd, 1, 2)) + torch_matmul(torch_matmul(KG, R[[s1]]), torch_transpose(KG, 1, 2)) # Eq.9
           while (as.numeric(torch_det(jP2[noNaRow,t,s1,s2,,])) < epsilon) {
-            jP2[noNaRow,t,s1,s2,,] <- torch_clone(jP2[noNaRow,t,s1,s2,,]) + epsD * torch_eye(Nf) } } # add a small constant to ensure p.s.d.
+            jP2[noNaRow,t,s1,s2,,] <- jP2[noNaRow,t,s1,s2,,] + epsD * torch_eye(Nf) } } # add a small constant to ensure p.s.d.
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- jEta[naRow,t,s1,s2,] # Eq.7 (for missing entries)
@@ -199,7 +199,7 @@ for (init in 1:nInit) {
         for (noNaRow in noNaRows[[t]]) {
           jLik[noNaRow,t,s1,s2] <- 
             torch_exp(-.5 * torch_matmul(torch_matmul(jDelta[noNaRow,t,s1,s2,], torch_cholesky_inverse(jPChol[noNaRow,t,s1,s2,,], upper=FALSE)), jDelta[noNaRow,t,s1,s2,])) 
-          jLik[noNaRow,t,s1,s2] <- min(torch_clone(jLik[noNaRow,t,s1,s2]), ceil) * (-.5*pi)**(-Nf/2) * torch_prod(torch_diag(jPChol[noNaRow,t,s1,s2,,]))**(-1) } } # Eq.12
+          jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], ceil) * (-.5*pi)**(-Nf/2) * torch_prod(torch_diag(jPChol[noNaRow,t,s1,s2,,]))**(-1) } } # Eq.12
       
       # step 9: transition probability P(s|s',eta_{t-1})  
       if (t == 1) {
@@ -246,7 +246,7 @@ for (init in 1:nInit) {
       subEta1 <- torch_unsqueeze(subEta, dim=-1)
       subEta2 <- torch_unsqueeze(subEta, dim=-2)
       subEtaSq <- torch_matmul(subEta1, subEta2)
-      subEtaSq <- (torch_clone(subEtaSq) + torch_transpose(torch_clone(subEtaSq), 4, 5)) / 2 # ensure symmetry
+      subEtaSq <- (subEtaSq + torch_transpose(subEtaSq, 4, 5)) / 2 # ensure symmetry
       
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
@@ -254,20 +254,20 @@ for (init in 1:nInit) {
         while (sum(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon) > 0) {
           subEtaSqInd <- which(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon)
           for (ind in subEtaSqInd) {
-            subEtaSq[ind,s1,s2,,] <- torch_clone(subEtaSq[ind,s1,s2,,]) + epsD * torch_eye(Nf) } } } # add a small constant to ensure p.s.d.
+            subEtaSq[ind,s1,s2,,] <- subEtaSq[ind,s1,s2,,] + epsD * torch_eye(Nf) } } } # add a small constant to ensure p.s.d.
       
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
       for (jnf in 1:nrow(jNf)) {
         f1 <- jNf$f1[jnf]
         f2 <- jNf$f2[jnf] 
         mP[,t+1,,f1,f2] <- torch_sum(W[,t,,] * (jP2[,t,,,,] + subEtaSq)[,,,f1,f2], dim=3) }
-      mP[,t+1,,,] <- (torch_clone(mP[,t+1,,,]) + torch_transpose(torch_clone(mP[,t+1,,,]), 3, 4)) / 2 # ensure symmetry
+      mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
       
       for (s1 in 1:2) {
         while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
           mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
           for (ind in mPInd) {
-            mP[ind,t+1,s1,,] <- torch_clone(mP[ind,t+1,s1,,]) + epsD * torch_eye(Nf) } } } } # add a small constant to ensure p.s.d.
+            mP[ind,t+1,s1,,] <- mP[ind,t+1,s1,,] + epsD * torch_eye(Nf) } } } } # add a small constant to ensure p.s.d.
     
     # aggregated (summed) likelihood at each optimization step
     sumLik[iter] <- as.numeric(torch_nansum(mLik))
