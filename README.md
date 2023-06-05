@@ -4,7 +4,7 @@ Current problem: aggreated likelihood is computed, but the backward path (to com
 
 Possible remedies...
 - reduce number of parameters?
-- use high performance computing resource?
+- pararrel computing (high performance computing resource)?
 
 Or different approach
-- approximate Σexp(f(Theta)) ～ exp(Σf(Theta))
+- approximate Σexp(f(Theta)) by exp(Σf(Theta)) and get analytical form?
