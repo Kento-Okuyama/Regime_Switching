@@ -2,7 +2,7 @@
 
 Current problem: 
 - error says that inplace modification prevents derivative from being calculated
-- aggreated likelihood is computed, but the backward path (to compute derivative) takes forever to be computed at line 309 (see algo_sam7.R).
+- aggreated likelihood is computed, but the backward path (to compute derivative) takes forever to be computed at line 309 (see algo_sam7.R) + there's no counterpart to torch_detach() which might be helpful to reduce the computation costs 
 
 
 For first problem:
