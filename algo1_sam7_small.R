@@ -34,13 +34,14 @@ ceil <- 1e6
 
 dropout <- y3D[,,dim(y3D)[3]]
 y <- y3D[,,1:(dim(y3D)[3]-1)]
+N <- min(dim(y)[1], 5)
+Nt <- dim(y)[2] / 2
+y <- y[1:N,1:Nt,]
 yMean <- mean(y[!is.na(y)])
 ySd <- sd(y[!is.na(y)])
 y <- (y - yMean) / ySd 
-N <- dim(y)[1] 
-Nt <- dim(y)[2]
 No <- dim(y)[3]
-eta <- eta3D
+eta <- eta3D[1:N,1:Nt,]
 etaMean <- mean(eta[!is.na(eta)])
 etaSd <-sd(eta[!is.na(eta)])
 eta <- (eta - etaMean) / etaSd
@@ -199,7 +200,7 @@ for (init in 1:nInit) {
         
         for (naRow in naRows[[t]]) {
           jEta2[naRow,t,s1,s2,] <- torch_clone(jEta[naRow,t,s1,s2,]) # Eq.7 (for missing entries)
-          jP2E[naRow,t,s1,s2,,] <- torch_clone(jPE[naRow,t,s1,s2,,]) } # Eq.8 (for missing entries)
+          jP2E[naRow,t,s1,s2,,] <- torch_clone(jP[naRow,t,s1,s2,,]) } # Eq.8 (for missing entries)
         
         # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
         # is likelihood function different because I am dealing with latent variables instead of observed variables?
@@ -212,10 +213,10 @@ for (init in 1:nInit) {
       if (t == 1) {
         tPr[,t,1] <- torch_sigmoid(alpha[[1]])
         tPr[,t,2] <- torch_sigmoid(alpha[[2]]) 
-        jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * mPr[,t]
-        jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-mPr[,t])
-        jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * mPr[,t]
-        jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-mPr[,t]) }
+        jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[noNaRow,t])
+        jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[noNaRow,t]))
+        jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[noNaRow,t])
+        jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[noNaRow,t])) }
       else {
         for (noNaRow in noNaRows[[t-1]]) {
           tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(eta[noNaRow,t-1,], beta[[1]]))
