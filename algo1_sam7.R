@@ -55,6 +55,10 @@ sumLikBest <- 0
 # Algorithm 1
 ###################################
 
+N <- 5
+y <- y[1:N,,]
+eta <- eta[1:N,,]
+
 for (init in 1:nInit) {
   print(paste0('Initialization step '), init)
   
@@ -212,10 +216,10 @@ for (init in 1:nInit) {
       if (t == 1) {
         tPr[,t,1] <- torch_sigmoid(alpha[[1]])
         tPr[,t,2] <- torch_sigmoid(alpha[[2]]) 
-        jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * mPr[,t]
-        jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-mPr[,t])
-        jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * mPr[,t]
-        jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-mPr[,t]) }
+        jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
+        jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
+        jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
+        jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) }
       else {
         for (noNaRow in noNaRows[[t-1]]) {
           tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(eta[noNaRow,t-1,], beta[[1]]))
@@ -307,8 +311,6 @@ for (init in 1:nInit) {
     
     # backward propagation
     torch_nansum(torch_clone(mLik))$backward(retain_graph=TRUE)
-    
-    print('ok')
     
     # store gradients
     grad <- torch_cat(list(a1$grad, a2$grad, B1d$grad, B2d$grad, k1$grad, k2$grad, Lmd1v$grad, Lmd2v$grad, alpha1$grad, alpha2$grad, beta1$grad, beta2$grad, Q1d$grad, Q2d$grad, R1d$grad, R2d$grad))
