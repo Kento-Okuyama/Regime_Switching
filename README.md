@@ -6,6 +6,7 @@ Possible remedy -> batch samples
 
 ## important files
 
+- data file (strictly confidential)
 - sam_preprocess4: loading data
 - CFA: getting factor scores of the data
 - adam: function that runs stochastic optimization
