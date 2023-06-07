@@ -21,7 +21,7 @@ nInit <- 1
 # a very small number
 epsilon <- 1e-6
 # a small number
-epsD <- 1e-1 
+epsD <- 5e-1 
 # a very large number
 ceil <- 1e6
 
@@ -41,7 +41,7 @@ No <- dim(y)[3]
 eta <- eta3D
 etaMean <- mean(eta[!is.na(eta)])
 etaSd <-sd(eta[!is.na(eta)])
-eta <- (eta - etaMean) / etaSdd
+eta <- (eta - etaMean) / etaSd
 for (t in 1:Nt) {for (i in 1:N) {eta[i,t,] <- eta[i,t,] - colMeans(eta[,1,])} }
 Nf <- dim(eta)[3]
 
@@ -144,7 +144,7 @@ for (init in 1:nInit) {
     # step 6:
     for (t in 1:Nt) { 
       
-      if (t %% 10 == 0) {cat('   t=', t, '\n')}
+      if (t %% 15 == 0) {cat('   t=', t, '\n')}
       
       # step 7: Kalman Filter
       # cat('      Kim Filter', '\n')
@@ -306,7 +306,7 @@ for (init in 1:nInit) {
     cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
     
     # run adam function defined above
-    result <- adam(loss=loss, theta=theta, nIter=1)
+    result <- adam(loss=loss, theta=theta)
     
     plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='l')
     
