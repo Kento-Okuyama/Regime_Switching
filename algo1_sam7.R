@@ -18,12 +18,10 @@ library(reticulate)
 set.seed(init)
 # number of parameter initialization
 nInit <- 1
-# max number of optimization steps
-nIter <- 1
 # a very small number
 epsilon <- 1e-6
 # a small number
-epsD <- 1 - epsilon 
+epsD <- 1e-1 
 # a very large number
 ceil <- 1e6
 
@@ -58,17 +56,16 @@ sumLikBest <- 0
 N <- 5
 y <- y[1:N,,]
 eta <- eta[1:N,,]
+Nt <- 10
 
 for (init in 1:nInit) {
-  print(paste0('Initialization step '), init)
+  cat('Initialization step ', init, '\n')
   
   # optimization step count
   iter <- 1
   # stopping criterion count
   count <- 0 
-  # moment estimates 
-  m <- v <- NULL
-  
+
   # step 3: initialize parameters
   a1 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE) 
   a2 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE) 
@@ -109,7 +106,8 @@ for (init in 1:nInit) {
   R1 <- torch_diag(R1d)
   R2 <- torch_diag(R2d)
   R <- list(R1, R2)
-  theta <- torch_cat(list(a1, a2, B1d, B2d, k1, k2, Lmd1v, Lmd2v, alpha1, alpha2, beta1, beta2, Q1d, Q2d, R1d, R2d))
+  
+  theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
   
   # define variables
   jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.2 (LHS)
@@ -140,9 +138,8 @@ for (init in 1:nInit) {
       mEta[i,1,s,] <- rep(x=0, times=Nf)
       mP[i,1,s,,] <- diag(x=1e1, nrow=Nf, ncol=Nf)} }
   
-  # while (count < 3) {
-  for (iter in 1:nIter) {
-    print(paste0('   optimization step: ', as.numeric(iter)))
+  while (count < 3) {
+    cat('   optimization step: ', as.numeric(iter), '\n')
     
     # step 5: initialize P(s'|eta_0)
     mPr[,1] <- epsilon 
@@ -151,9 +148,9 @@ for (init in 1:nInit) {
     jS <- expand.grid(s1=c(1,2), s2=c(1,2))
     # step 6:
     for (t in 1:Nt) { 
-      print(paste0('   t=',t))
+      cat('   t=', t, '\n')
       # step 7: Kalman Filter
-      print('      Kim Filter')
+      # cat('      Kim Filter', '\n')
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
         s2 <- jS$s2[js]
@@ -244,7 +241,7 @@ for (init in 1:nInit) {
       mPr[,t+1] <- torch_sum(torch_clone(jPr2[,t,2,]), dim=2)
       
       # step 11: collapsing procedure
-      print('      Collapsing')
+      # cat('      Collapsing', '\n')
       for (s2 in 1:2) { 
         denom1 <- 1 - torch_clone(mPr[,t+1])
         denom12 <- torch_full_like(torch_clone(denom1), NaN)
@@ -295,25 +292,25 @@ for (init in 1:nInit) {
           for (ind in mPInd) {mPE[ind,t+1,s1,,] <- torch_clone(mPsym[ind,t+1,s1,,])} } } } 
     
     # aggregated (summed) likelihood at each optimization step
-    sumLik[iter] <- as.numeric(torch_nansum(torch_clone(mLik)))
-    
+    loss <- torch_nansum(-torch_clone(mLik))
+    sumLik[iter] <- as.numeric(-loss)
+
     # stopping criterion
     if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsilon) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
     # add count if the new sumLik does not beat the best score
-    if (crit < epsD) {count <- count + 1}
+    if (crit < epsilon) {count <- count + 1}
     else {count <- 0}
     
     if (count==3) {print('   stopping criterion is met'); break}
-    print(paste0('   sum likelihood = ', sumLik[iter]))
+    cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
     
-    # backward propagation
-    torch_nansum(torch_clone(mLik))$backward(retain_graph=TRUE)
+    # run adam function defined above
+    result <- adam(loss=loss, theta=theta, nIter=1)
     
-    # store gradients
-    grad <- torch_cat(list(a1$grad, a2$grad, B1d$grad, B2d$grad, k1$grad, k2$grad, Lmd1v$grad, Lmd2v$grad, alpha1$grad, alpha2$grad, beta1$grad, beta2$grad, Q1d$grad, Q2d$grad, R1d$grad, R2d$grad))
+    iter <- iter + 1
     
   } # continue to numerical re-optimization
 } # continue to re-initialization of parameters
