@@ -293,7 +293,7 @@ for (init in 1:nInit) {
     sumLik[iter] <- as.numeric(-loss)
 
     # stopping criterion
-    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsD) {
+    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-1) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
