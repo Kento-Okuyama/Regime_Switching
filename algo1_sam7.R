@@ -41,7 +41,7 @@ No <- dim(y)[3]
 eta <- eta3D
 etaMean <- mean(eta[!is.na(eta)])
 etaSd <-sd(eta[!is.na(eta)])
-eta <- (eta - etaMean) / etaSd
+eta <- (eta - etaMean) / etaSdd
 for (t in 1:Nt) {for (i in 1:N) {eta[i,t,] <- eta[i,t,] - colMeans(eta[,1,])} }
 Nf <- dim(eta)[3]
 
@@ -52,11 +52,6 @@ sumLikBest <- 0
 ###################################
 # Algorithm 1
 ###################################
-
-N <- 5
-y <- y[1:N,,]
-eta <- eta[1:N,,]
-Nt <- 10
 
 for (init in 1:nInit) {
   cat('Initialization step ', init, '\n')
@@ -131,7 +126,7 @@ for (init in 1:nInit) {
   noNaRows <- list()
   # rows that have NA values
   naRows <- list()
-  
+
   # step 4: initialize latent variables
   for (s in 1:2) {
     for (i in 1:N) {
@@ -148,7 +143,9 @@ for (init in 1:nInit) {
     jS <- expand.grid(s1=c(1,2), s2=c(1,2))
     # step 6:
     for (t in 1:Nt) { 
-      cat('   t=', t, '\n')
+      
+      if (t %% 10 == 0) {cat('   t=', t, '\n')}
+      
       # step 7: Kalman Filter
       # cat('      Kim Filter', '\n')
       for (js in 1:nrow(jS)) {
@@ -296,7 +293,7 @@ for (init in 1:nInit) {
     sumLik[iter] <- as.numeric(-loss)
 
     # stopping criterion
-    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsilon) {
+    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsD) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
@@ -305,10 +302,13 @@ for (init in 1:nInit) {
     else {count <- 0}
     
     if (count==3) {print('   stopping criterion is met'); break}
+    
     cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
     
     # run adam function defined above
     result <- adam(loss=loss, theta=theta, nIter=1)
+    
+    plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='l')
     
     iter <- iter + 1
     

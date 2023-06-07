@@ -3,7 +3,7 @@
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam <- function(loss, theta, nIter, m=NULL, v=NULL, lr=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-6) {
+adam <- function(loss, theta, nIter, m=NULL, v=NULL, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8) {
 
   # initialize moment estimates
   if (is.null(m) || is.null(v)) {m <- v <- rep(0, length(torch_cat(theta)))}
