@@ -274,19 +274,20 @@ for (init in 1:nInit) {
       subEta1 <- torch_unsqueeze(torch_clone(subEta), dim=-1)
       subEta2 <- torch_unsqueeze(torch_clone(subEta), dim=-2)
       subEtaSq <- torch_matmul(torch_clone(subEta1), torch_clone(subEta2))
-      subEtaSqsym <- (torch_clone(subEtaSq) + torch_transpose(torch_clone(subEtaSq), 4, 5)) / 2 # ensure symmetry
-      subEtaSqE <- torch_full_like(torch_clone(subEtaSqsym), NaN)
+      with_no_grad({
+        subEtaSq <- (torch_clone(subEtaSq) + torch_transpose(torch_clone(subEtaSq), 4, 5)) / 2 }) # ensure symmetry
+      subEtaSqE <- torch_full_like(torch_clone(subEtaSq), NaN)
       
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
         s2 <- jS$s2[js]
         
-        if (sum(as.numeric(torch_det(torch_clone(subEtaSqsym[,s1,s2,,]))) < epsilon) > 0) {
-          subEtaSqInd <- which(as.numeric(torch_det(torch_clone(subEtaSqsym[,s1,s2,,]))) < epsilon)
-          for (ind in subEtaSqInd) {subEtaSqE[ind,s1,s2,,] <- torch_clone(subEtaSqsym[ind,s1,s2,,]) + epsD * torch_eye(Nf)} }
-        if (sum(as.numeric(torch_det(torch_clone(subEtaSqsym[,s1,s2,,]))) >= epsilon) > 0) {
-          subEtaSqInd <- which(as.numeric(torch_det(torch_clone(subEtaSqsym[,s1,s2,,]))) >= epsilon)
-          for (ind in subEtaSqInd) {subEtaSqE[ind,s1,s2,,] <- torch_clone(subEtaSqsym[ind,s1,s2,,])} } } 
+        if (sum(as.numeric(torch_det(torch_clone(subEtaSq[,s1,s2,,]))) < epsilon) > 0) {
+          subEtaSqInd <- which(as.numeric(torch_det(torch_clone(subEtaSq[,s1,s2,,]))) < epsilon)
+          for (ind in subEtaSqInd) {subEtaSqE[ind,s1,s2,,] <- torch_clone(subEtaSq[ind,s1,s2,,]) + epsD * torch_eye(Nf)} }
+        if (sum(as.numeric(torch_det(torch_clone(subEtaSq[,s1,s2,,]))) >= epsilon) > 0) {
+          subEtaSqInd <- which(as.numeric(torch_det(torch_clone(subEtaSq[,s1,s2,,]))) >= epsilon)
+          for (ind in subEtaSqInd) {subEtaSqE[ind,s1,s2,,] <- torch_clone(subEtaSq[ind,s1,s2,,])} } } 
       
       jNf <- expand.grid(f1=1:Nf, f2=1:Nf)
       for (jnf in 1:nrow(jNf)) {
@@ -309,7 +310,7 @@ for (init in 1:nInit) {
     sumLik[iter] <- as.numeric(-loss)
 
     # stopping criterion
-    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-5) {
+    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e3) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
