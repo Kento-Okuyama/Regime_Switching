@@ -49,6 +49,13 @@ Nf <- dim(eta)[3]
 sumLik <- list()
 sumLikBest <- 0
 
+schuffled <- sample(N)
+y <- y[schuffled,,]
+eta <- eta[schuffled,,]
+
+y_split <- list(y[1:ceiling(N/2),,], y[(ceiling(N/2)+1):N,,])
+eta_split <- list(eta[1:ceiling(N/2),,], eta[(ceiling(N/2)+1):N,,])
+
 ###################################
 # Algorithm 1
 ###################################
@@ -60,7 +67,7 @@ for (init in 1:nInit) {
   iter <- 1
   # stopping criterion count
   count <- 0 
-
+  
   # step 3: initialize parameters
   a1 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE) 
   a2 <- torch_tensor(torch_randn(Nf), requires_grad=TRUE) 
@@ -126,7 +133,7 @@ for (init in 1:nInit) {
   noNaRows <- list()
   # rows that have NA values
   naRows <- list()
-
+  
   # step 4: initialize latent variables
   for (s in 1:2) {
     for (i in 1:N) {
@@ -137,6 +144,9 @@ for (init in 1:nInit) {
   
   while (count < 3) {
     cat('   optimization step: ', as.numeric(iter), '\n')
+    
+    y <- y_split[[(iter+1)%%2+1]]
+    eta <- eta_split[[(iter+1)%%2+1]]
     
     # step 5: initialize P(s'|eta_0)
     mPr[,1] <- epsilon 
@@ -293,7 +303,7 @@ for (init in 1:nInit) {
     # aggregated (summed) likelihood at each optimization step
     loss <- torch_nansum(-torch_clone(mLik))
     sumLik[iter] <- as.numeric(-loss)
-
+    
     # stopping criterion
     if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-1) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
