@@ -136,11 +136,11 @@ for (init in 1:nInit) {
     # define variables
     jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.2 (LHS)
     jDelta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.3 (LHS)
-    jP <- jPChol <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Eq.4 (LHS)
+    jP <- jPsym <- jPE <- jPChol <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Eq.4 (LHS)
     jV <- torch_full(c(N,Nt,2,2,No), NaN) # Eq.5 (LHS)
-    jF <- jFChol <- torch_full(c(N,Nt,2,2,No,No), NaN) # Eq.6 (LHS)
+    jF <- jFsym <- jFE <- jFChol <- torch_full(c(N,Nt,2,2,No,No), NaN) # Eq.6 (LHS)
     jEta2 <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.7 (LHS)
-    jP2 <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Eq.8 (LHS)
+    jP2 <- jP2sym <- jP2E <- torch_full(c(N,Nt,2,2,Nf,Nf), NaN) # Eq.8 (LHS)
     mEta <- torch_full(c(N,Nt+1,2,Nf), NaN) # Eq.9-1 (LHS)
     mP <- mPsym <- mPE <- torch_full(c(N,Nt+1,2,Nf,Nf), NaN) # Eq.9-2 (LHS)
     W <- torch_full(c(N,Nt,2,2), NaN) # Eq.9-3 (LHS)
@@ -258,15 +258,13 @@ for (init in 1:nInit) {
       for (s2 in 1:2) { 
         denom1 <- 1 - torch_clone(mPr[,t+1])
         denom12 <- torch_full_like(torch_clone(denom1), NaN)
-        with_no_grad({
-          denom12[torch_clone(denom1)<=epsilon] <- torch_clone(denom1)[torch_clone(denom1)<=epsilon] + epsilon
-          denom12[torch_clone(denom1)>epsilon] <- torch_clone(denom1)[torch_clone(denom1)>epsilon] })
+        denom12[torch_clone(denom1)<=epsilon] <- torch_clone(denom1)[torch_clone(denom1)<=epsilon] + epsilon
+        denom12[torch_clone(denom1)>epsilon] <- torch_clone(denom1)[torch_clone(denom1)>epsilon] 
         W[,t,1,s2] <- torch_clone(jPr2[,t,1,s2]) / torch_clone(denom12)
         denom2 <- torch_clone(mPr[,t+1])
         denom22 <- torch_full_like(torch_clone(denom2), NaN)
-        with_no_grad({
-          denom22[torch_clone(denom2)<=epsilon] <- torch_clone(denom2)[torch_clone(denom2)<=epsilon] + epsilon
-          denom22[torch_clone(denom2)>epsilon] <- torch_clone(denom2)[torch_clone(denom2)>epsilon] })
+        denom22[torch_clone(denom2)<=epsilon] <- torch_clone(denom2)[torch_clone(denom2)<=epsilon] + epsilon
+        denom22[torch_clone(denom2)>epsilon] <- torch_clone(denom2)[torch_clone(denom2)>epsilon]
         W[,t,2,s2] <- torch_clone(jPr2[,t,2,s2]) / torch_clone(denom22) }
       
       for (f in 1:Nf) {mEta[,t+1,,f] <- torch_sum(torch_clone(W[,t,,]) * torch_clone(jEta2[,t,,,f]), dim=3)}
@@ -311,7 +309,7 @@ for (init in 1:nInit) {
     sumLik[iter] <- as.numeric(-loss)
 
     # stopping criterion
-    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e0) {
+    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-5) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
