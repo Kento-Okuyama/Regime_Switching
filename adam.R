@@ -9,7 +9,7 @@ adam <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8)
   if (is.null(m) || is.null(v)) {m <- v <- rep(0, length(torch_cat(theta)))}
   
   # backward propagation
-  loss$backward(retain_graph=TRUE) # not working
+  loss$backward() 
 
   with_no_grad({
     # store gradients
@@ -22,24 +22,6 @@ adam <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8)
     # update bias corrected moment estimates
     m_hat <- m / (1 - beta1**iter)
     v_hat <- v / (1 - beta2**iter)
-    
-    # zero the gradients
-    theta$a1$grad$zero_()
-    theta$a2$grad$zero_() 
-    theta$B1d$grad$zero_()
-    theta$B2d$grad$zero_()
-    theta$k1$grad$zero_()
-    theta$k2$grad$zero_()
-    theta$Lmd1v$grad$zero_()
-    theta$Lmd2v$grad$zero_()
-    theta$alpha1$grad$zero_()
-    theta$alpha2$grad$zero_()
-    theta$beta1$grad$zero_()
-    theta$beta2$grad$zero_()
-    theta$Q1d$grad$zero_()
-    theta$Q2d$grad$zero_()
-    theta$R1d$grad$zero_()
-    theta$R2d$grad$zero_()
     
     # Update parameters using Adam update rule
     denom <- sqrt(v_hat) + epsilon
@@ -76,8 +58,7 @@ adam <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8)
     theta$R1d$sub_(lr * m_hat[(index+1):(index+No)] / denom[(index+1):(index+No)])
     index <- index + No
     theta$R2d$sub_(lr * m_hat[(index+1):(index+No)] / denom[(index+1):(index+No)])
-    index <- index + No
-  })
-
-  return(list(m=m, v=v))
+    index <- index + No })
+  
+  return(list(theta=theta, m=m, v=v))
 }

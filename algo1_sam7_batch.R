@@ -55,6 +55,7 @@ eta <- eta[schuffled,,]
 
 y_split <- list(y[1:ceiling(N/2),,], y[(ceiling(N/2)+1):N,,])
 eta_split <- list(eta[1:ceiling(N/2),,], eta[(ceiling(N/2)+1):N,,])
+N <- N/2
 
 ###################################
 # Algorithm 1
@@ -305,7 +306,7 @@ for (init in 1:nInit) {
     sumLik[iter] <- as.numeric(-loss)
     
     # stopping criterion
-    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-1) {
+    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-2) {
       crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
