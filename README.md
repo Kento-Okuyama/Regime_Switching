@@ -1,10 +1,12 @@
 # Regime_Switching
 
-Current problem: backward path (to compute derivative) takes forever to be computed within adam optimization
+Current problem: backward path (to compute derivative) takes time to be computed within adam optimization
 
 Remedies
 - optimized code by 'switching off' backward path tracking whenever appropriate
 - mini-batch gradient descent
+
+Next problem: calibration of stopping criterion
 
 ## important files
 
