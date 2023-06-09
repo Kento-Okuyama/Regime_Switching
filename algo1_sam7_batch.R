@@ -320,6 +320,7 @@ for (init in 1:nInit) {
     if (count==3) {print('   stopping criterion is met'); break}
     
     cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
+    plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
     
     # run adam function defined above
     result <- adam(loss=loss, theta=theta, m=m, v=v)
@@ -344,8 +345,6 @@ for (init in 1:nInit) {
     Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
     R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
     R2d <- torch_tensor(theta$R2d, requires_grad=FALSE)
-    
-    plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='l')
     
     iter <- iter + 1
     
