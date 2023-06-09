@@ -317,10 +317,10 @@ for (init in 1:nInit) {
     if (crit < epsilon) {count <- count + 1}
     else {count <- 0}
     
-    if (count==3) {print('   stopping criterion is met'); break}
-    
     cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
     plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
+    
+    if (count==3) {print('   stopping criterion is met'); break}
     
     # run adam function defined above
     result <- adam(loss=loss, theta=theta, m=m, v=v)
