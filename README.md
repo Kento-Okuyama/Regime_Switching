@@ -2,7 +2,9 @@
 
 Current problem: backward path (to compute derivative) takes forever to be computed within adam optimization
 
-Possible remedy -> batch samples
+Remedies
+- optimized code by 'switching off' backward path tracking whenever appropriate
+- mini-batch gradient descent
 
 ## important files
 
@@ -11,3 +13,4 @@ Possible remedy -> batch samples
 - CFA: getting factor scores of the data
 - adam: function that runs stochastic optimization
 - algo1_sam7: Kim Filter and parameter optimization
+- algo1_sam7: same as above (mini-batch version)

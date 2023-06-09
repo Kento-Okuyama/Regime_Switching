@@ -204,7 +204,7 @@ for (init in 1:nInit) {
           # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
           jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_clone(I_KGLmd), torch_clone(jP[noNaRow,t,s1,s2,,])), torch_transpose(torch_clone(I_KGLmd), 1, 2)) + torch_matmul(torch_matmul(torch_clone(KG), R[[s1]]), torch_transpose(torch_clone(KG), 1, 2)) # Eq.9
           with_no_grad ({
-            if (as.numeric(torch_det(jP2[noNaRow,t,s1,s2,,])) < epsilon) {
+            while (as.numeric(torch_det(jP2[noNaRow,t,s1,s2,,])) < epsilon) {
               jP2[noNaRow,t,s1,s2,,]$add_(epsD * torch_eye(Nf)) } }) } # add a small constant to ensure p.s.d.
         
         for (naRow in naRows[[t]]) {
@@ -289,7 +289,7 @@ for (init in 1:nInit) {
       with_no_grad({mP[,t+1,,,] <- (torch_clone(mP[,t+1,,,]) + torch_transpose(torch_clone(mP[,t+1,,,]), 3, 4)) / 2 # ensure symmetry
       
       for (s1 in 1:2) {
-        if (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
+        while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
           mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
           for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(epsD * torch_eye(Nf))} } } }) }  # add a small constant to ensure p.s.d.
     
