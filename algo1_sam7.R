@@ -17,11 +17,11 @@ library(reticulate)
 # for reproducibility 
 set.seed(init)
 # number of parameter initialization
-nInit <- 1
+nInit <- 3
 # a very small number
 epsilon <- 1e-6
 # a small number
-epsD <- 1e-1 
+epsD <- 5e-2 
 # a very large number
 ceil <- 1e6
 
@@ -44,9 +44,6 @@ etaSd <-sd(eta[!is.na(eta)])
 eta <- (eta - etaMean) / etaSd
 for (t in 1:Nt) {for (i in 1:N) {eta[i,t,] <- eta[i,t,] - colMeans(eta[,1,])} }
 Nf <- dim(eta)[3]
-
-# f(Y|theta)
-sumLik <- list()
 sumLikBest <- 0
 
 ###################################
@@ -56,6 +53,8 @@ sumLikBest <- 0
 for (init in 1:nInit) {
   cat('Initialization step ', init, '\n')
   
+  # store sum-likelihood 
+  sumLik <- list()
   # optimization step count
   iter <- 1
   # stopping criterion count
@@ -83,7 +82,7 @@ for (init in 1:nInit) {
   noNaRows <- list()
   # rows that have NA values
   naRows <- list()
-
+  # initialize moment estimates
   m <- v <- NULL
   
   while (count < 3) {
@@ -148,6 +147,7 @@ for (init in 1:nInit) {
     mPr <- torch_full(c(N,Nt+1), NaN) # Eq.10-4 (LHS)
     jLik <- torch_full(c(N,Nt,2,2), NaN) # Eq.11 (LHS)
     tPr <- torch_full(c(N,Nt,2), NaN) # Eq.12 (LHS)
+    subEta <-torch_full(c(N,2,2,Nf), NaN)
     
     # step 4: initialize latent variables
     for (s in 1:2) {
@@ -162,7 +162,6 @@ for (init in 1:nInit) {
     jS <- expand.grid(s1=c(1,2), s2=c(1,2))
     # step 6:
     for (t in 1:Nt) { 
-      
       if (t %% 15 == 0) {cat('   t=', t, '\n')}
       
       # step 7: Kalman Filter
@@ -198,8 +197,7 @@ for (init in 1:nInit) {
           # kalman gain function
           KG <- torch_matmul(torch_matmul(torch_clone(jP[noNaRow,t,s1,s2,,]), Lmd[[s1]]), torch_cholesky_inverse(torch_clone(jFChol[noNaRow,t,s1,s2,,]), upper=FALSE))
           jEta2[noNaRow,t,s1,s2,] <- torch_clone(jEta[noNaRow,t,s1,s2,]) + torch_matmul(torch_clone(KG), torch_clone(jV[noNaRow,t,s1,s2,])) # Eq.7
-          KGLmd <- torch_matmul(torch_clone(KG), torch_transpose(Lmd[[s1]], 1, 2))
-          I_KGLmd <- torch_eye(Nf) - torch_clone(KGLmd)
+          I_KGLmd <- torch_eye(Nf) - torch_matmul(torch_clone(KG), torch_transpose(Lmd[[s1]], 1, 2))
           
           # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
           jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_clone(I_KGLmd), torch_clone(jP[noNaRow,t,s1,s2,,])), torch_transpose(torch_clone(I_KGLmd), 1, 2)) + torch_matmul(torch_matmul(torch_clone(KG), R[[s1]]), torch_transpose(torch_clone(KG), 1, 2)) # Eq.9
@@ -245,7 +243,8 @@ for (init in 1:nInit) {
           mLik[noNaRow,t] <- torch_sum(torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]))
           # (updated) joint probability P(s,s'|eta_{t})
           jPr2[noNaRow,t,,] <- torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]) / max(torch_clone(mLik[noNaRow,t]), epsilon)
-          if (as.numeric(torch_sum(torch_clone(jPr2[noNaRow,t,,]))) == 0) {jPr2[noNaRow,t,,] <- torch_clone(jPr[noNaRow,t,,])} } }
+          with_no_grad ({
+            if (as.numeric(torch_sum(torch_clone(jPr2[noNaRow,t,,]))) == 0) {jPr2[noNaRow,t,,] <- torch_clone(jPr[noNaRow,t,,])} }) } }
       for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- torch_clone(jPr[naRow,t,,])}
       mPr[,t+1] <- torch_sum(torch_clone(jPr2[,t,2,]), dim=2)
       
@@ -264,12 +263,9 @@ for (init in 1:nInit) {
       
       for (f in 1:Nf) {mEta[,t+1,,f] <- torch_sum(torch_clone(W[,t,,]) * torch_clone(jEta2[,t,,,f]), dim=3)}
       
-      subEta <- torch_full_like(torch_clone(jEta2[,t,,,]), NaN)
       for (s2 in 1:2) {subEta[,,s2,] <- torch_clone(mEta[,t+1,,]) - torch_clone(jEta2[,t,,s2,])}
-      subEta1 <- torch_unsqueeze(torch_clone(subEta), dim=-1)
-      subEta2 <- torch_unsqueeze(torch_clone(subEta), dim=-2)
-      subEtaSq <- torch_matmul(torch_clone(subEta1), torch_clone(subEta2))
-      with_no_grad({subEtaSq <- (subEtaSq + torch_transpose(subEtaSq, 4, 5)) / 2 }) # ensure symmetry
+      subEtaSq <- torch_matmul(torch_unsqueeze(torch_clone(subEta), dim=-1), torch_unsqueeze(torch_clone(subEta), dim=-2))
+      with_no_grad({subEtaSq <- (subEtaSq + torch_transpose(subEtaSq, 4, 5)) / 2}) # ensure symmetry
 
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
@@ -285,57 +281,60 @@ for (init in 1:nInit) {
         f1 <- jNf$f1[jnf]
         f2 <- jNf$f2[jnf] 
         
-        mP[,t+1,,f1,f2] <- torch_sum(torch_clone(W[,t,,]) * (torch_clone(jP2[,t,,,,]) + torch_clone(subEtaSq))[,,,f1,f2], dim=3) }
-      with_no_grad({mP[,t+1,,,] <- (torch_clone(mP[,t+1,,,]) + torch_transpose(torch_clone(mP[,t+1,,,]), 3, 4)) / 2 # ensure symmetry
-      
-      for (s1 in 1:2) {
-        while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
-          mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
-          for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(epsD * torch_eye(Nf))} } } }) }  # add a small constant to ensure p.s.d.
+        mP[,t+1,,f1,f2] <- torch_sum(torch_clone(W[,t,,]) * (torch_clone(jP2[,t,,,f1,f2]) + torch_clone(subEtaSq[,,,f1,f2])), dim=3) }
+      with_no_grad({
+        mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
+        for (s1 in 1:2) {
+          while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
+            mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
+            for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(epsD * torch_eye(Nf))} } } }) }  # add a small constant to ensure p.s.d.
     
     # aggregated (summed) likelihood at each optimization step
     loss <- torch_nansum(-torch_clone(mLik))
-    sumLik[iter] <- as.numeric(-loss)
+    with_no_grad({sumLik[iter] <- as.numeric(-loss)})
 
     # stopping criterion
-    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > 1e-2) {
-      crit <- (sumLik[iter][[1]] - sumLik[1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
+    if (abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsilon) {
+      crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]) }
     else {crit <- 0}
     
     # add count if the new sumLik does not beat the best score
-    if (crit < epsilon) {count <- count + 1}
+    if (crit < epsD) {count <- count + 1}
     else {count <- 0}
     
     cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
     plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
     
-    if (count==3) {print('   stopping criterion is met'); break}
+    sumLikBest <- max(sumLikBest, sumLik[iter][[1]])
+    if (sumLikBest > sumLik[iter][[1]]) {with_no_grad({thetaBest <- torch_clone(theta)})}
     
     # run adam function defined above
-    result <- adam(loss=loss, theta=theta, m=m, v=v)
-    theta <- result$theta
-    m <- result$m 
-    v <- result$v
+    with_no_grad({
+      result <- adam(loss=loss, theta=theta, m=m, v=v)
+      theta <- result$theta
+      m <- result$m 
+      v <- result$v 
     
-    # switch off the gradient tracking
-    a1 <- torch_tensor(theta$a1, requires_grad=FALSE)
-    a2 <- torch_tensor(theta$a2, requires_grad=FALSE)
-    B1d <- torch_tensor(theta$B1d, requires_grad=FALSE)
-    B2d <- torch_tensor(theta$B2d, requires_grad=FALSE)
-    k1 <- torch_tensor(theta$k1, requires_grad=FALSE)
-    k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
-    Lmd1v <- torch_tensor(theta$Lmd1v, requires_grad=FALSE)
-    Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
-    alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
-    alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
-    beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
-    beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
-    Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
-    Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
-    R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
-    R2d <- torch_tensor(theta$R2d, requires_grad=FALSE)
+      # switch off the gradient tracking
+      a1 <- torch_tensor(theta$a1, requires_grad=FALSE)
+      a2 <- torch_tensor(theta$a2, requires_grad=FALSE)
+      B1d <- torch_tensor(theta$B1d, requires_grad=FALSE)
+      B2d <- torch_tensor(theta$B2d, requires_grad=FALSE)
+      k1 <- torch_tensor(theta$k1, requires_grad=FALSE)
+      k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
+      Lmd1v <- torch_tensor(theta$Lmd1v, requires_grad=FALSE)
+      Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
+      alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
+      alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
+      beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
+      beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
+      Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
+      Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
+      R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
+      R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
     
     iter <- iter + 1
+    if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
     
   } # continue to numerical re-optimization
 } # continue to re-initialization of parameters
