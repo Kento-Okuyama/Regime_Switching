@@ -172,16 +172,15 @@ for (init in 1:nInit) {
     # step 6:
     for (t in 1:Nt) { 
       if (t %% 15 == 0) {cat('   t=', t, '\n')}
+      # rows that does not have NA values 
+      noNaRows[[t]] <- which(rowSums(is.na(y[,t,])) == 0)
+      # rows that have NA values
+      naRows[[t]] <- which(rowSums(is.na(y[,t,])) > 0)
       
       # step 7: Kalman Filter
       for (js in 1:nrow(jS)) {
         s1 <- jS$s1[js]
         s2 <- jS$s2[js]
-        
-        # rows that does not have NA values 
-        noNaRows[[t]] <- which(rowSums(is.na(y[,t,])) == 0)
-        # rows that have NA values
-        naRows[[t]] <- which(rowSums(is.na(y[,t,])) > 0)
         
         jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
         for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - torch_clone(jEta[noNaRow,t,s1,s2,])} # Eq.3
@@ -252,8 +251,7 @@ for (init in 1:nInit) {
           mLik[noNaRow,t] <- torch_sum(torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]))
           # (updated) joint probability P(s,s'|eta_{t})
           jPr2[noNaRow,t,,] <- torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]) / max(torch_clone(mLik[noNaRow,t]), epsilon)
-          with_no_grad ({
-            if (as.numeric(torch_sum(torch_clone(jPr2[noNaRow,t,,]))) == 0) {jPr2[noNaRow,t,,] <- torch_clone(jPr[noNaRow,t,,])} }) } }
+          with_no_grad ({if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) == 0) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} }) } }
       for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- torch_clone(jPr[naRow,t,,])}
       mPr[,t+1] <- torch_sum(torch_clone(jPr2[,t,2,]), dim=2)
       

@@ -8,6 +8,9 @@ Remedies
 
 Next problem: calibration of stopping criterion
 
+- autoregressive parameters B and Lmd should be clipped (at line 72, 73, 76, 77)?
+- Line 210-226 could be speeded up using vector-indexing notations?
+
 ## important files
 
 - data file (strictly confidential)
@@ -15,4 +18,5 @@ Next problem: calibration of stopping criterion
 - CFA: getting factor scores of the data
 - adam: function that runs stochastic optimization
 - algo1_sam7: Kim Filter and parameter optimization
-- algo1_sam7: same as above (mini-batch version)
+- algo1_sam7_try: same as above (with error catch)
+- algo1_sam7_batch: same as above (mini-batch version)
