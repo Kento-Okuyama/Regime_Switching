@@ -8,8 +8,7 @@ Remedies
 
 Next problem: calibration of stopping criterion
 
-- autoregressive parameters B and Lmd should be clipped (at line 72, 73, 76, 77)?
-- Line 210-226 could be speeded up using vector-indexing notations?
+- autoregressive parameters B and Lmd should be clipped (at line 72, 73, 76, 77)? -> check stationarity propertires of VAR -> eigenvalues lie within unit circle? ...  the absolute value of each eigenvalue should be less than one 
 
 ## important files
 
