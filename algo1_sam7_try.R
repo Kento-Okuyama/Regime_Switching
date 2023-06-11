@@ -178,10 +178,10 @@ for (init in 1:nInit) {
         for (js in 1:nrow(jS)) {
           s1 <- jS$s1[js]
           s2 <- jS$s2[js]
-
-          jEta[,t,s1,s2,] <- a[[s1]] + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
-          if (length(noNaRows[[t]]) == N) {jDelta[,t,s1,s2,] <- eta[,t,] - torch_clone(jEta[,t,s1,s2,])}
-          else {for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- eta[noNaRow,t,] - torch_clone(jEta[noNaRow,t,s1,s2,])}} # Eq.3
+          
+          jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
+          if (length(noNaRows[[t]]) == N) {jDelta[,t,s1,s2,] <- torch_tensor(eta[,t,]) - torch_clone(jEta[,t,s1,s2,])}
+          else {for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- torch_tensor(eta[noNaRow,t,]) - torch_clone(jEta[noNaRow,t,s1,s2,])}} # Eq.3
           jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]] # Eq.4
           with_no_grad ({
             jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -190,8 +190,8 @@ for (init in 1:nInit) {
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(epsD * torch_eye(Nf))} } }) # add a small constant to ensure p.s.d.
           jPChol[,t,s1,s2,,] <- torch_cholesky(torch_clone(jP[,t,s1,s2,,]), upper=FALSE) # Cholesky decomposition
           
-          if (length(noNaRows[[t]]) == N) {jV[,t,s1,s2,] <- y[,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))}
-          else {for (noNaRow in noNaRows[[t]]) {jV[noNaRow,t,s1,s2,] <- y[noNaRow,t,] - (k[[s1]] + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} } # Eq.5
+          if (length(noNaRows[[t]]) == N) {jV[,t,s1,s2,] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))}
+          else {for (noNaRow in noNaRows[[t]]) {jV[noNaRow,t,s1,s2,] <- torch_tensor(y[noNaRow,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} } # Eq.5
           jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
           with_no_grad ({
             jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -228,16 +228,16 @@ for (init in 1:nInit) {
         
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
-          tPr[,t,1] <- torch_sigmoid(alpha[[1]])
-          tPr[,t,2] <- torch_sigmoid(alpha[[2]]) 
+          tPr[,t,1] <- torch_squeeze(alpha[[1]])
+          tPr[,t,2] <- torch_squeeze(alpha[[2]])
           jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
           jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
           jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
           jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) }
         else {
           if (length(noNaRows[[t-1]]) == N) {
-            tPr[,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(eta[,t-1,], beta[[1]]))
-            tPr[,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(eta[,t-1,], beta[[2]])) 
+            tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta[,t-1,]), beta[[1]]))
+            tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta[,t-1,]), beta[[2]])) 
             
             # step 10: Hamilton Filter
             # joint probability P(s,s'|eta_{t-1})
@@ -248,8 +248,8 @@ for (init in 1:nInit) {
           else if (length(naRows[[t-1]]) == N) {jPr[,t,,] <- torch_clone(jPr[,t-1,,])}
           else { 
             for (noNaRow in noNaRows[[t-1]]) {
-              tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(eta[noNaRow,t-1,], beta[[1]]))
-              tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(eta[noNaRow,t-1,], beta[[2]])) 
+              tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta[noNaRow,t-1,]), beta[[1]]))
+              tPr[noNaRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta[noNaRow,t-1,]), beta[[2]])) 
               
               # step 10: Hamilton Filter
               # joint probability P(s,s'|eta_{t-1})
