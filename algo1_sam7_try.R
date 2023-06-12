@@ -154,7 +154,7 @@ for (init in 1:nInit) {
       mPr <- torch_full(c(N,Nt+1), NaN) # Eq.10-4 (LHS)
       jLik <- torch_full(c(N,Nt,2,2), NaN) # Eq.11 (LHS)
       tPr <- torch_full(c(N,Nt,2), NaN) # Eq.12 (LHS)
-      subEta <-torch_full(c(N,2,2,Nf), NaN)
+      subEta <- torch_full(c(N,2,2,Nf), NaN)
       
       # step 4: initialize latent variables
       mEta[,1,,] <- 0
@@ -331,7 +331,9 @@ for (init in 1:nInit) {
       
       # run adam function defined above
       with_no_grad({
+        print('ok before adam')
         result <- adam(loss=loss, theta=theta, m=m, v=v)
+        print('ok after adam')
         theta <- result$theta
         m <- result$m 
         v <- result$v 
@@ -358,4 +360,3 @@ for (init in 1:nInit) {
       if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
     } }) # continue to numerical re-optimization 
 } # continue to re-initialization of parameters
-
