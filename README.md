@@ -1,7 +1,7 @@
 # Regime_Switching
 
 Current problems
-- index errors(?) occuring in the middle of the optimization steps
+- optimization is interrupted by errors (cause not found; possibly undesirable parameter initialization or numerical error in the backward pass calculations?)
 - backward path (to compute derivative) takes time to be computed within adam optimization
 - calibration of stopping criterion
 
