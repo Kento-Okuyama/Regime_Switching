@@ -17,6 +17,4 @@ Small notes:
 - data file (strictly confidential)
 - sam_preprocess: loading data & getting factor scores (Bartlett scores) of the data
 - adam: function that runs adam optimization
-- algo1_sam7: Kim Filter and parameter optimization
-- algo1_sam7_try: same as above (with error catch)
-- algo1_sam7_batch: same as above (mini-batch version)
+- algo1_sam7_try: Kim Filter and parameter optimization
