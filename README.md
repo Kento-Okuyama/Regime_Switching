@@ -13,9 +13,9 @@ Small notes:
 - autoregressive parameters B and Lmd should be clipped (at line 72, 73, 76, 77)? -> check stationarity propertires of VAR -> eigenvalues lie within unit circle? ...  the absolute value of each eigenvalue should be less than one 
 
 Future:
-- add parameters
+- check estimated S_{it} and parameters
+- add parameters -> ask about preprocessing
 - simulation studies - multiple experiments?
-
 
 
 ## important files

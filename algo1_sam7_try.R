@@ -180,8 +180,7 @@ for (init in 1:nInit) {
           s2 <- jS$s2[js]
           
           jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
-          if (length(noNaRows[[t]]) == N) {jDelta[,t,s1,s2,] <- torch_tensor(eta[,t,]) - torch_clone(jEta[,t,s1,s2,])}
-          else {for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- torch_tensor(eta[noNaRow,t,]) - torch_clone(jEta[noNaRow,t,s1,s2,])}} # Eq.3
+          jDelta[,t,s1,s2,] <- torch_tensor(eta[,t,]) - torch_clone(jEta[,t,s1,s2,]) # Eq.3
           jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]] # Eq.4
           with_no_grad ({
             jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -190,8 +189,7 @@ for (init in 1:nInit) {
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(epsD * torch_eye(Nf))} } }) # add a small constant to ensure p.s.d.
           jPChol[,t,s1,s2,,] <- torch_cholesky(torch_clone(jP[,t,s1,s2,,]), upper=FALSE) # Cholesky decomposition
           
-          if (length(noNaRows[[t]]) == N) {jV[,t,s1,s2,] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))}
-          else {for (noNaRow in noNaRows[[t]]) {jV[noNaRow,t,s1,s2,] <- torch_tensor(y[noNaRow,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} } # Eq.5
+          jV[,t,s1,s2,] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))
           jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
           with_no_grad ({
             jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -262,7 +260,7 @@ for (init in 1:nInit) {
         # marginal likelihood function f(eta_{t}|eta_{t-1})
         if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])}
         else if (length(noNaRows[[t]]) == N) {
-          mLik[,t] <- torch_sum(torch_clone(jLik[,t,,]) * torch_clone(jPr[,t,,]))
+          mLik[,t] <- torch_sum(torch_clone(jLik[,t,,]) * torch_clone(jPr[,t,,]), dim=c(2,3))
           # (updated) joint probability P(s,s'|eta_{t})
           jPr2[,t,,] <- torch_clone(jLik[,t,,]) * torch_clone(jPr[,t,,]) / max(torch_clone(mLik[,t]), epsilon)
           for (row in 1:N) {
