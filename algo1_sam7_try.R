@@ -221,8 +221,9 @@ for (init in 1:nInit) {
           # is likelihood function different because I am dealing with latent variables instead of observed variables?
           for (noNaRow in noNaRows[[t]]) {
             jLik[noNaRow,t,s1,s2] <- 
-              (-.5*pi)**(-Nf/2) * torch_prod(torch_diag(torch_clone(jPChol[noNaRow,t,s1,s2,,])))**(-1) * 
-              torch_squeeze(torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), torch_cholesky_inverse(torch_clone(jPChol[noNaRow,t,s1,s2,,]), upper=FALSE)), torch_clone(jDelta[noNaRow,t,s1,s2,])))) } } # Eq.12
+              torch_squeeze((-.5*pi)**(-Nf/2) * torch_prod(torch_diag(torch_clone(jPChol[noNaRow,t,s1,s2,,])))**(-1) * 
+                              torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), torch_cholesky_inverse(torch_clone(jPChol[noNaRow,t,s1,s2,,]), upper=FALSE)), 
+                                                         torch_clone(jDelta[noNaRow,t,s1,s2,])))) } } # Eq.12
         
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
@@ -290,7 +291,10 @@ for (init in 1:nInit) {
             for (s1 in 1:2) {
               if (sum(as.numeric(W[,t,s1,s2]) < epsilon) > 0) {
                 WInd <- which(as.numeric(W[,t,s1,s2]) < epsilon)
-                for (ind in WInd) {W[ind,t,s1,s2] <- epsilon} } } }) } # add a small constant to ensure p.s.d.
+                for (ind in WInd) {W[ind,t,s1,s2] <- epsilon} } 
+              if(sum(as.numeric(W[,t,s1,s2]) > 1) > 0) {
+                WInd <- which(as.numeric(W[,t,s1,s2]) > 1)
+                for (ind in WInd) {W[ind,t,s1,s2] <- 1 - epsilon} } } }) } # add a small constant to ensure p.s.d.
         
         mEta[,t+1,,] <- torch_sum(torch_unsqueeze(torch_clone(W[,t,,]), dim=-1) * torch_clone(jEta2[,t,,,]), dim=3)
         subEta <- torch_unsqueeze(torch_clone(mEta[,t+1,,]), dim=-2) - torch_clone(jEta2[,t,,,])
