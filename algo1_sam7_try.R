@@ -15,7 +15,7 @@ library(torch)
 library(reticulate)
 
 # for reproducibility 
-set.seed(init)
+set.seed(42)
 # number of parameter initialization
 nInit <- 1
 # a very small number
@@ -324,10 +324,14 @@ for (init in 1:nInit) {
       else {count <- 0}
       
       cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
+      print('ok before plot')
       plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
       
+      print('ok before max')
       sumLikBest <- max(sumLikBest, sumLik[iter][[1]])
-      if (sumLikBest > sumLik[iter][[1]]) {with_no_grad({thetaBest <- torch_clone(theta)})}
+      print('ok after max')
+      if (sumLikBest < sumLik[iter][[1]]) {with_no_grad({thetaBest <- torch_clone(theta)})}
+      print('ok after thetaBest update')
       
       # run adam function defined above
       with_no_grad({
@@ -356,7 +360,7 @@ for (init in 1:nInit) {
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
       
-      iter <- iter + 1
       if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
+      iter <- iter + 1
     } }) # continue to numerical re-optimization 
 } # continue to re-initialization of parameters
