@@ -15,13 +15,13 @@ library(torch)
 library(reticulate)
 
 # for reproducibility 
-set.seed(42)
+set.seed(init)
 # number of parameter initialization
 nInit <- 1
 # a very small number
 epsilon <- 1e-6
 # a small number
-epsD <- 1e-2 
+epsD <- 5e-2 
 # a very large number
 ceil <- 1e6
 
@@ -69,12 +69,12 @@ for (init in 1:nInit) {
   # step 3: initialize parameters
   a1 <- torch_randn(Nf)
   a2 <- torch_randn(Nf)
-  B1d <- runif(Nf, min=.5, max=1)
-  B2d <- runif(Nf, min=.5, max=1)
+  B1d <- torch_rand(Nf)
+  B2d <- torch_rand(Nf)
   k1 <- torch_randn(No)
   k2 <- torch_randn(No)
-  Lmd1v <- runif(No, min=.5, max=1)
-  Lmd2v <- runif(No, min=.5, max=1)
+  Lmd1v <- torch_rand(No)
+  Lmd2v <- torch_rand(No)
   alpha1 <- torch_randn(1)
   alpha2 <- torch_randn(1)
   beta1 <- torch_randn(Nf)
@@ -179,8 +179,10 @@ for (init in 1:nInit) {
         for (js in 1:nrow(jS)) {
           s1 <- jS$s1[js]
           s2 <- jS$s2[js]
+          
           jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) # Eq.2
-          jDelta[,t,s1,s2,] <- torch_tensor(eta[,t,]) - torch_clone(jEta[,t,s1,s2,]) # Eq.3
+          if (length(noNaRows[[t]]) == N) {jDelta[,t,s1,s2,] <- torch_tensor(eta[,t,]) - torch_clone(jEta[,t,s1,s2,])
+          } else {for (noNaRow in noNaRows[[t]]) {jDelta[noNaRow,t,s1,s2,] <- torch_tensor(eta[noNaRow,t,]) - torch_clone(jEta[noNaRow,t,s1,s2,])}} # Eq.3
           jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]] # Eq.4
           with_no_grad ({
             jP[,t,s1,s2,,] <- (jP[,t,s1,s2,,] + torch_transpose(jP[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -188,8 +190,9 @@ for (init in 1:nInit) {
               jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(epsD * torch_eye(Nf))} } }) # add a small constant to ensure p.s.d.
           jPChol[,t,s1,s2,,] <- torch_cholesky(torch_clone(jP[,t,s1,s2,,]), upper=FALSE) # Cholesky decomposition
-          # why does R skip this jV sometimes?
-          jV[,t,s1,s2] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))
+          
+          if (length(noNaRows[[t]]) == N) {jV[,t,s1,s2,] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))
+          } else {for (noNaRow in noNaRows[[t]]) {jV[noNaRow,t,s1,s2,] <- torch_tensor(y[noNaRow,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[noNaRow,t,s1,s2,]), Lmd[[s1]]))} } # Eq.5
           jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
           with_no_grad ({
             jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -206,13 +209,13 @@ for (init in 1:nInit) {
               for (naRow in naRows[[t]]) {
                 jEta2[naRow,t,s1,s2,] <- torch_clone(jEta[naRow,t,s1,s2,]) # Eq.7 (for missing entries)
                 jP2[naRow,t,s1,s2,,] <- torch_clone(jP[naRow,t,s1,s2,,]) } } # Eq.8 (for missing entries)
-            # kalman gain function
-            KG <- torch_matmul(torch_matmul(torch_clone(jP[,t,s1,s2,,]), Lmd[[s1]]), torch_cholesky_inverse(torch_clone(jFChol[,t,s1,s2,,]), upper=FALSE))
             for (noNaRow in noNaRows[[t]]) {
-              jEta2[noNaRow,t,s1,s2,] <- torch_clone(jEta[noNaRow,t,s1,s2,]) + torch_matmul(torch_clone(KG[noNaRow,,]), torch_clone(jV[noNaRow,t,s1,s2,])) # Eq.7
-              I_KGLmd <- torch_eye(Nf) - torch_matmul(torch_clone(KG[noNaRow,,]), torch_transpose(Lmd[[s1]], 1, 2))
+              # kalman gain function
+              KG <- torch_matmul(torch_matmul(torch_clone(jP[noNaRow,t,s1,s2,,]), Lmd[[s1]]), torch_cholesky_inverse(torch_clone(jFChol[noNaRow,t,s1,s2,,]), upper=FALSE))
+              jEta2[noNaRow,t,s1,s2,] <- torch_clone(jEta[noNaRow,t,s1,s2,]) + torch_matmul(torch_clone(KG), torch_clone(jV[noNaRow,t,s1,s2,])) # Eq.7
+              I_KGLmd <- torch_eye(Nf) - torch_matmul(torch_clone(KG), torch_transpose(Lmd[[s1]], 1, 2))
               # jP2[noNaRow,t,s1,s2,,] <- torch_matmul(I_KGLmd, jP[noNaRow,t,s1,s2,,])} # Eq.8 
-              jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_clone(I_KGLmd), torch_clone(jP[noNaRow,t,s1,s2,,])), torch_transpose(torch_clone(I_KGLmd), 1, 2)) + torch_matmul(torch_matmul(torch_clone(KG[noNaRow,,]), R[[s1]]), torch_transpose(torch_clone(KG[noNaRow,,]), 1, 2)) # Eq.9
+              jP2[noNaRow,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_clone(I_KGLmd), torch_clone(jP[noNaRow,t,s1,s2,,])), torch_transpose(torch_clone(I_KGLmd), 1, 2)) + torch_matmul(torch_matmul(torch_clone(KG), R[[s1]]), torch_transpose(torch_clone(KG), 1, 2)) # Eq.9
               with_no_grad ({
                 while (as.numeric(torch_det(jP2[noNaRow,t,s1,s2,,])) < epsilon) {
                   jP2[noNaRow,t,s1,s2,,]$add_(epsD * torch_eye(Nf)) } }) } } # add a small constant to ensure p.s.d.
@@ -222,7 +225,7 @@ for (init in 1:nInit) {
           for (noNaRow in noNaRows[[t]]) {
             jLik[noNaRow,t,s1,s2] <- 
               (-.5*pi)**(-Nf/2) * torch_prod(torch_diag(torch_clone(jPChol[noNaRow,t,s1,s2,,])))**(-1) * 
-              torch_squeeze(torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), torch_cholesky_inverse(torch_clone(jPChol[noNaRow,t,s1,s2,,]), upper=FALSE)), torch_clone(jDelta[noNaRow,t,s1,s2,])))) } } # Eq.12
+              torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), torch_cholesky_inverse(torch_clone(jPChol[noNaRow,t,s1,s2,,]), upper=FALSE)), torch_clone(jDelta[noNaRow,t,s1,s2,]))) } } # Eq.12
         
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
@@ -236,7 +239,6 @@ for (init in 1:nInit) {
           if (length(noNaRows[[t-1]]) == N) {
             tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta[,t-1,]), beta[[1]]))
             tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta[,t-1,]), beta[[2]])) 
-            
             # step 10: Hamilton Filter
             # joint probability P(s,s'|eta_{t-1})
             jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
@@ -287,10 +289,9 @@ for (init in 1:nInit) {
             for (ind in dInd) {denom2[ind]$add_(epsilon)} })
           W[,t,2,s2] <- torch_clone(jPr2[,t,2,s2]) / torch_clone(denom2) 
           with_no_grad({
-            for (s1 in 1:2) {
-              if (sum(as.numeric(W[,t,s1,s2]) < epsilon) > 0) {
-                WInd <- which(as.numeric(W[,t,s1,s2]) < epsilon)
-                for (ind in WInd) {W[ind,t,s1,s2] <- epsilon} } } }) } # add a small constant to ensure p.s.d.
+            if (sum(as.numeric(W[,t,s1,s2]) < epsilon) > 0) {
+              WInd <- which(as.numeric(W[,t,s1,s2]) < epsilon)
+              for (ind in WInd) {W[ind,t,s1,s2] <- epsilon} } }) } # add a small constant to ensure p.s.d.
         
         mEta[,t+1,,] <- torch_sum(torch_unsqueeze(torch_clone(W[,t,,]), dim=-1) * torch_clone(jEta2[,t,,,]), dim=3)
         subEta <- torch_unsqueeze(torch_clone(mEta[,t+1,,]), dim=-2) - torch_clone(jEta2[,t,,,])
@@ -318,17 +319,17 @@ for (init in 1:nInit) {
       with_no_grad(sumLik[iter] <- as.numeric(-loss))
       
       # stopping criterion
-      ifelse(abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsilon, crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]), crit <- 0)
+      ifelse(sumLik[iter][[1]] - sumLik[1][[1]] > epsilon, crit <- (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / (sumLik[iter][[1]] - sumLik[1][[1]]), crit <- 0)
       
       # add count if the new sumLik does not beat the best score
-      ifelse(crit < epsD, count <- count + 1, count <- 0)
+      ifelse (crit < epsD, count <- count + 1, count <- 0)
       
       cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
       plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
       
       sumLikBest <- max(sumLikBest, sumLik[iter][[1]])
       if (sumLikBest < sumLik[iter][[1]]) {with_no_grad({thetaBest <- torch_clone(theta)})}
-
+      
       # run adam function defined above
       with_no_grad({
         result <- adam(loss=loss, theta=theta, m=m, v=v)
@@ -354,7 +355,7 @@ for (init in 1:nInit) {
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
       
-      if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
       iter <- iter + 1
+      if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
     } }) # continue to numerical re-optimization 
 } # continue to re-initialization of parameters
