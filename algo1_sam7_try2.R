@@ -185,7 +185,7 @@ for (init in 1:nInit) {
             jPEig[[1]]$real[jPEig[[1]]$real < epsilon] <- epsilon
             jPEig[[1]]$real[jPEig[[1]]$real > ceil] <- ceil
             for (row in 1:N) {jP[row,t,s1,s2,,] <- torch_matmul(torch_matmul(jPEig[[2]]$real[row,,], torch_diag(jPEig[[1]]$real[row,])), torch_transpose(jPEig[[2]]$real[row,,], 1, 2))} 
-            if (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
+            while (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
               jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(1e-1 * torch_eye(Nf))} } }) # add a small constant to ensure p.s.d.
           jPChol[,t,s1,s2,,] <- linalg_cholesky_ex(torch_clone(jP[,t,s1,s2,,]))$L # Cholesky decomposition
@@ -198,7 +198,7 @@ for (init in 1:nInit) {
             jFEig[[1]]$real[jFEig[[1]]$real < epsilon] <- epsilon
             jFEig[[1]]$real[jFEig[[1]]$real > ceil] <- ceil
             for (row in 1:N) {jF[row,t,s1,s2,,] <- torch_matmul(torch_matmul(jFEig[[2]]$real[row,,], torch_diag(jFEig[[1]]$real[row,])), torch_transpose(jFEig[[2]]$real[row,,], 1, 2))} 
-            if (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
+            while (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
               jFInd <- which(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon)
               for (ind in jFInd) {jF[ind,t,s1,s2,,]$add_(5e-1 * torch_eye(No))} } }) # add a small constant to ensure p.s.d.
           jFChol[,t,s1,s2,,] <- linalg_cholesky_ex(torch_clone(jF[,t,s1,s2,,]))$L # Cholesky decomposition
@@ -298,10 +298,10 @@ for (init in 1:nInit) {
           W[,t,2,s2] <- torch_clone(jPr2[,t,2,s2]) / torch_clone(denom2) 
           with_no_grad({
             for (s1 in 1:2) {
-              if (sum(as.numeric(W[,t,s1,s2]) < epsilon) > 0) {
-                WInd <- which(as.numeric(W[,t,s1,s2]) < epsilon)
+              while (sum(as.numeric(W[,t,s1,s2]) < 0) > 0) {
+                WInd <- which(as.numeric(W[,t,s1,s2]) < 0)
                 for (ind in WInd) {W[ind,t,s1,s2] <- epsilon} } 
-              if (sum(as.numeric(W[,t,s1,s2]) > 1) > 0) {
+              while (sum(as.numeric(W[,t,s1,s2]) > 1) > 0) {
                 WInd <- which(as.numeric(W[,t,s1,s2]) >= 1)
                 for (ind in WInd) {W[ind,t,s1,s2] <- 1 - epsilon} } } }) } # add a small constant to ensure p.s.d.
         
@@ -322,7 +322,7 @@ for (init in 1:nInit) {
               subEtaSq[row,s1,s2,,] <- 
                 torch_matmul(torch_matmul(subEtaSqEig[[2]]$real[row,s1,s2,,], torch_diag(subEtaSqEig[[1]]$real[row,s1,s2,])), torch_transpose(subEtaSqEig[[2]]$real[row,s1,s2,,], 1, 2)) }
             
-            if (sum(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon) > 0) {
+            while (sum(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon) > 0) {
               subEtaSqInd <- which(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon)
               for (ind in subEtaSqInd) {subEtaSq[ind,s1,s2,,]$add_(1e-1 * torch_eye(Nf))} } } })  
         
@@ -334,7 +334,7 @@ for (init in 1:nInit) {
             mPEig[[1]]$real[mPEig[[1]]$real > ceil] <- ceil
             mPEig[[1]]$real[mPEig[[1]]$real < epsilon] <- epsilon
             for (row in 1:N) {mP[row,t+1,s1,,] <- torch_matmul(torch_matmul(mPEig[[2]]$real[row,,], torch_diag(mPEig[[1]]$real[row,])), torch_transpose(mPEig[[2]]$real[row,,], 1, 2))}
-            if (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
+            while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
               mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
               for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(1e-1 * torch_eye(Nf))} } } }) }  # add a small constant to ensure p.s.d.
       
@@ -377,8 +377,7 @@ for (init in 1:nInit) {
         Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
-      print('ok')
-      
+
       if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
       iter <- iter + 1
     } }) # continue to numerical re-optimization 
