@@ -166,6 +166,7 @@ for (init in 1:nInit) {
       # step 6
       for (t in 1:Nt) { 
         cat('   t=', t, '\n')
+         if (t %% 30 == 0) {cat('   t=', t, '\n')}
         # rows that does not have NA values 
         noNaRows[[t]] <- which(rowSums(is.na(y[,t,])) == 0)
         # rows that have NA values
@@ -352,7 +353,6 @@ for (init in 1:nInit) {
       
       sumLikBest <- max(sumLikBest, sumLik[iter][[1]])
       if (sumLikBest < sumLik[iter][[1]]) {with_no_grad({thetaBest <- torch_clone(theta)})}
-      
       # run adam function defined above
       with_no_grad({
         result <- adam(loss=loss, theta=theta, m=m, v=v)
@@ -377,6 +377,7 @@ for (init in 1:nInit) {
         Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
+      print('ok')
       
       if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
       iter <- iter + 1
