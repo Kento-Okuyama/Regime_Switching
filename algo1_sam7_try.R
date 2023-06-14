@@ -187,7 +187,7 @@ for (init in 1:nInit) {
             while (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
               jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(epsD * torch_eye(Nf))} } }) # add a small constant to ensure p.s.d.
-          jPChol[,t,s1,s2,,] <- torch_cholesky(torch_clone(jP[,t,s1,s2,,]), upper=FALSE) # Cholesky decomposition
+          jPChol[,t,s1,s2,,] <- linalg_cholesky(torch_clone(jP[,t,s1,s2,,])) # Cholesky decomposition
           # why does R skip this jV sometimes?
           jV[,t,s1,s2] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))
           jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
@@ -196,7 +196,7 @@ for (init in 1:nInit) {
             while (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
               jFInd <- which(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon)
               for (ind in jFInd) {jF[ind,t,s1,s2,,]$add_(epsD * torch_eye(No))} } }) # add a small constant to ensure p.s.d.
-          jFChol[,t,s1,s2,,] <- torch_cholesky(torch_clone(jF[,t,s1,s2,,]), upper=FALSE) # Cholesky decomposition
+          jFChol[,t,s1,s2,,] <- linalg_cholesky(torch_clone(jF[,t,s1,s2,,])) # Cholesky decomposition
           
           if (length(naRows[[t]]) == N) {
             jEta2[,t,s1,s2,] <- torch_clone(jEta[,t,s1,s2,]) 
