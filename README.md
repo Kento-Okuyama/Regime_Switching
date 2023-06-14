@@ -14,7 +14,6 @@ Small notes:
 
 Future:
 - check estimated S_{it} and parameters
-- add parameters -> ask about preprocessing
 - simulation studies - multiple experiments?
 
 

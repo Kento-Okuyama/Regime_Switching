@@ -63,22 +63,22 @@ for (init in 1:nInit) {
   count <- 0 
   
   # step 3: initialize parameters
-  a1 <- torch_randn(Nf)
-  a2 <- torch_randn(Nf)
+  a1 <- rnorm(Nf)
+  a2 <- rnorm(Nf)
   B1d <- runif(Nf, min=.5, max=1)
   B2d <- runif(Nf, min=.5, max=1)
-  k1 <- torch_randn(No)
-  k2 <- torch_randn(No)
+  k1 <- rnorm(No)
+  k2 <- rnorm(No)
   Lmd1v <- runif(No, min=.5, max=1)
   Lmd2v <- runif(No, min=.5, max=1)
-  alpha1 <- torch_randn(1)
-  alpha2 <- torch_randn(1)
-  beta1 <- torch_randn(Nf)
-  beta2 <- torch_randn(Nf)
-  Q1d <- torch_rand(Nf)**2
-  Q2d <- torch_rand(Nf)**2
-  R1d <- torch_rand(No)**2
-  R2d <- torch_rand(No)**2
+  alpha1 <- rnorm(1)
+  alpha2 <- rnorm(1)
+  beta1 <- rnorm(Nf)
+  beta2 <- rnorm(Nf)
+  Q1d <- rchisq(Nf, df=1)
+  Q2d <- rchisq(Nf, df=1)
+  R1d <- rchisq(No, df=1)
+  R2d <- rchisq(No, df=1)
   
   # rows that have non-NA values 
   noNaRows <- list()
@@ -183,7 +183,7 @@ for (init in 1:nInit) {
             while (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
               jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(1e-1 * torch_eye(Nf))} } }) # add a small constant to ensure p.s.d.
-          jPChol[,t,s1,s2,,] <- linalg_cholesky(torch_clone(jP[,t,s1,s2,,])) # Cholesky decomposition
+          jPChol[,t,s1,s2,,] <- linalg_cholesky_ex(torch_clone(jP[,t,s1,s2,,]))$L # Cholesky decomposition
           # why does R skip this jV sometimes?
           jV[,t,s1,s2] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))
           jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
@@ -192,7 +192,7 @@ for (init in 1:nInit) {
             while (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
               jFInd <- which(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon)
               for (ind in jFInd) {jF[ind,t,s1,s2,,]$add_(5e-1 * torch_eye(No))} } }) # add a small constant to ensure p.s.d.
-          jFChol[,t,s1,s2,,] <- linalg_cholesky(torch_clone(jF[,t,s1,s2,,])) # Cholesky decomposition
+          jFChol[,t,s1,s2,,] <- linalg_cholesky_ex(torch_clone(jF[,t,s1,s2,,]))$L # Cholesky decomposition
           
           if (length(naRows[[t]]) == N) {
             jEta2[,t,s1,s2,] <- torch_clone(jEta[,t,s1,s2,]) 
