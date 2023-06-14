@@ -300,14 +300,11 @@ for (init in 1:nInit) {
         for (js in 1:nrow(jS)) {
           s1 <- jS$s1[js]
           s2 <- jS$s2[js]
-          
           with_no_grad({ 
             while (sum(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon) > 0) {
               subEtaSqInd <- which(as.numeric(torch_det(subEtaSq[,s1,s2,,])) < epsilon)
               for (ind in subEtaSqInd) {subEtaSq[ind,s1,s2,,]$add_(1e-1 * torch_eye(Nf))} } }) } 
-        print('before mP')
         mP[,t+1,,,] <- torch_sum(torch_unsqueeze(torch_unsqueeze(torch_clone(W[,t,,]), dim=-1), dim=-1) * (torch_clone(jP2[,t,,,,]) + torch_clone(subEtaSq)), dim=3) 
-        print('after mP')
         with_no_grad({
           mP[,t+1,,,] <- (mP[,t+1,,,] + torch_transpose(mP[,t+1,,,], 3, 4)) / 2 # ensure symmetry
           for (s1 in 1:2) {
