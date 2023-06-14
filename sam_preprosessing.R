@@ -20,7 +20,7 @@ cols_w <- c("Av1_state", "Iv1_state", "Uv1_state", "Co1_state", "Co2_state", "Le
           "Leist_stress_state", "Leist_ueberfordert_state", "Angst_abbruch_state", "Angst_scheitern_state", "PANP01_state", 
           "PANP05_state", "PANP08_state", "PANN01_state", "PANN05_state", "PANN09_state")
 # select inter-individual observed variables
-cols_b <- c("gesamt_iq")
+cols_b <- c("abi_m_note", "fw_pkt", "gesamt_iq")
 
 cols <- c(cols_w, cols_b)
   
@@ -40,7 +40,7 @@ str(data)
 # unique ID
 uID <- unique(y2D$ID)
 # unique day
-uDay <- min(y2D$day):max(y2D$day)
+uDay <- sort(unique(data$day))
 
 # number of days
 Nt <- length(uDay)
@@ -49,12 +49,16 @@ N <- length(uID)
 # number of columns
 nC2D <- ncol(y2D)
 
+dUDay <-  list()
+for (t in 2:Nt) {dUDay[t-1] <- uDay[t] - uDay[t-1]}
+table(unlist(dUDay))
+
 # rename within-variables
 cols_w <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
           "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
           "NA1", "NA5", "NA9")
 # rename between-variables
-cols_b <- c("totIQ")
+cols_b <- c("abiMath", "TIMMS", "totIQ")
 
 cols <- c(cols_w, cols_b)
 
@@ -70,13 +74,21 @@ cols <- c(cols_w, cols_b)
 # PA1, PA5, PA8: positive affect scale (careful, active, excited)
 # NA1, NA5, NA9: negative affect scale (nervous, afraid, distressed)
 ## between ##
+# abiMath: math abinote between 1 and 6 (the smaller the better)
+# TIMMS: prior math performance (Sum score of the 20 TIMMS items)
 # totIQ: cognitive basic ability (total score)
 ######################################################################
 
 colnames(y2D)[3:(nC2D-1)] <- cols
 
-# unexpected input: dropout = -1
-# table(yt2$dropout)
+y2D$abiMath[y2D$abiMath<=1.1 & is.na(y2D$abiMath)==FALSE] <- 15
+y2D$abiMath[y2D$abiMath>=1.2 & y2D$abiMath<=1.5&is.na(y2D$abiMath)==FALSE] <- 14
+y2D$abiMath[y2D$abiMath>=1.6 & y2D$abiMath<=1.8&is.na(y2D$abiMath)==FALSE] <- 13
+y2D$abiMath[y2D$abiMath>=1.9 & y2D$abiMath<=2.1&is.na(y2D$abiMath)==FALSE] <- 12
+y2D$abiMath[y2D$abiMath>=2.2 & y2D$abiMath<=2.5&is.na(y2D$abiMath)==FALSE] <- 11
+y2D$abiMath[y2D$abiMath>=2.6 & y2D$abiMath<=2.8&is.na(y2D$abiMath)==FALSE] <- 10
+y2D$abiMath[y2D$abiMath>=2.9 & y2D$abiMath<=3.1&is.na(y2D$abiMath)==FALSE] <- 9
+y2D$abiMath[y2D$abiMath>=3.2 & y2D$abiMath<=3.5&is.na(y2D$abiMath)==FALSE] <- 8
 
 #########################################################
 # reshape the longitudinal data into 3D (N x Nt x nC3D) #
@@ -170,20 +182,20 @@ for (i in 2:N){
 # replace -1e30 with NA
 y3D[y3D==-1e30] <- NA
 
-# 117 people with no response at t=10
-summary(y3D[,10,])
-# 33 people with no response at t=11
-summary(y3D[,11,])
-# 117 people with no response at t=15
-summary(y3D[,15,])
-# 47 people with no response at t=16
-summary(y3D[,16,])
+# 117 people with no response at t=1
+summary(y3D[,1,])
+# 36 people with no response at t=2
+summary(y3D[,2,])
+# 33 people with no response at t=15
+summary(y3D[,3,])
+# 42 people with no response at t=16
+summary(y3D[,4,])
 
-# select data only after 11th days
-y3D <- y3D[,11:Nt,]
+# select data only after the second day
+y3D <- y3D[,2:Nt,]
 
 # unique day (updated)
-uDay <- uDay[11:Nt]
+uDay <- uDay[2:Nt]
 
 # number of days (updated)
 Nt <- dim(y3D)[2]
@@ -191,7 +203,7 @@ Nt <- dim(y3D)[2]
 # unique ID (updated)
 uID <- uID[complete.cases(y3D[,1,])]
 
-# remove rows with missing values at t=11
+# remove rows with missing values at t=2
 y3D <- y3D[complete.cases(y3D[,1,]),,] 
 # dim(y3D)
 
@@ -244,7 +256,7 @@ stress =~ stress1 + stress2
 AtF =~ AtF1 + AtF2
 PAS =~ PA1 + PA5 + PA8
 NAS =~ NA1 + NA5 + NA9
-IQ =~ totIQ
+IQ =~ abiMath + TIMMS + totIQ
 '
 
 # number of latent factor 
