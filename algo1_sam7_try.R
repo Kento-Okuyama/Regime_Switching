@@ -217,14 +217,16 @@ for (init in 1:nInit) {
                 while (as.numeric(torch_det(jP2[noNaRow,t,s1,s2,,])) < epsilon) {
                   jP2[noNaRow,t,s1,s2,,]$add_(epsD * torch_eye(Nf)) } }) } } # add a small constant to ensure p.s.d.
           
-          # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
-          # is likelihood function different because I am dealing with latent variables instead of observed variables?
-          for (noNaRow in noNaRows[[t]]) {
-            jLik[noNaRow,t,s1,s2] <- 
-              torch_squeeze((-.5*pi)**(-Nf/2) * torch_prod(torch_diag(torch_clone(jPChol[noNaRow,t,s1,s2,,])))**(-1) * 
-                              torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), torch_cholesky_inverse(torch_clone(jPChol[noNaRow,t,s1,s2,,]), upper=FALSE)), 
-                                                         torch_clone(jDelta[noNaRow,t,s1,s2,])))) } } # Eq.12
-        
+          with_detect_anomaly({
+            # step 8: joint likelihood function f(eta_{t}|s,s',eta_{t-1})
+            # is likelihood function different because I am dealing with latent variables instead of observed variables?
+            for (noNaRow in noNaRows[[t]]) {
+              jLik[noNaRow,t,s1,s2] <- 
+                torch_squeeze((-.5*pi)**(-Nf/2) * torch_prod(torch_diag(torch_clone(jPChol[noNaRow,t,s1,s2,,])))**(-1) * 
+                                torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), torch_cholesky_inverse(torch_clone(jPChol[noNaRow,t,s1,s2,,]), upper=FALSE)), 
+                                                           torch_clone(jDelta[noNaRow,t,s1,s2,])))) }
+          }) } # Eq.12
+          
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
           tPr[,t,1] <- torch_squeeze(alpha[[1]])
