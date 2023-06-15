@@ -17,5 +17,4 @@ Future:
 - data file (strictly confidential)
 - sam_preprocess: loading data & getting factor scores (Bartlett scores) of the data
 - adam: function that runs adam optimization
-- algo1_sam7_try: Kim Filter and parameter optimization (Diagonal purtubation based)
-- algo1_sam7_try: Kim Filter and parameter optimization (Eigendecomposition based)
+- algo1_sam7_try: Kim Filter and parameter optimization (Eigendecomposition + Diagonal purtubation)
