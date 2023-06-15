@@ -303,6 +303,7 @@ for (init in 1:nInit) {
         
         mEta[,t+1,,] <- torch_sum(torch_unsqueeze(torch_clone(W[,t,,]), dim=-1) * torch_clone(jEta2[,t,,,]), dim=3)
         subEta <- torch_unsqueeze(torch_clone(mEta[,t+1,,]), dim=-2) - torch_clone(jEta2[,t,,,])
+        with_no_grad(subEta[abs(subEta) < epsilon] <- epsilon) 
         subEtaSq <- torch_matmul(torch_unsqueeze(torch_clone(subEta), dim=-1), torch_unsqueeze(torch_clone(subEta), dim=-2))
         with_no_grad({ 
           subEtaSq <- (subEtaSq + torch_transpose(subEtaSq, 4, 5)) / 2 # ensure symmetry
