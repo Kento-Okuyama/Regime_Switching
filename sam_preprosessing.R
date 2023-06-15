@@ -159,6 +159,13 @@ y3D[is.na(y3D)] <- -1e30
 #       if (y3D[i,t-1,col] < 0) {next}
 #       if (y3D[i,t,col] < 0) {y3D[i,t,col] <- y3D[i,t-1,col] } } } }
 
+
+for (i in 1:N) {
+  for (t in 2:Nt) {
+      if (y3D[i,t-1,nC3D] < 0) {next}
+      if (y3D[i,t,nC3D] < 0) {y3D[i,t,nC3D] <- y3D[i,t-1,nC3D] } } } 
+
+
 # there are less dropout = -1e30
 # table(y3D)
 
@@ -168,16 +175,12 @@ y3D[is.na(y3D)] <- -1e30
 
 for (i in 1:N) {
   for (t in 2:Nt) {
-    if (y3D[i,t-1,nC3D] == 1) {
-      y3D[i,t:Nt,nC3D] <- 1
-      break } } }
+    if (y3D[i,t-1,nC3D] == 1) {y3D[i,t:Nt,nC3D] <- 1; break} } }
 
 # plot persons' drop out occurrence
 c <- brewer.pal(8, "Dark2")
 plot(y3D[1,,nC3D], type="l", ylim=c(0,1), lwd=1.5, xlab="day", ylab="dropout", main="dropout occurrence", yaxt="n")
-for (i in 2:N){
-  lines(y3D[i,,nC3D], col=c[i%%8], lwd=1.5)
-}
+for (i in 2:N){lines(y3D[i,,nC3D], col=c[i%%8], lwd=1.5)}
 
 # replace -1e30 with NA
 y3D[y3D==-1e30] <- NA
