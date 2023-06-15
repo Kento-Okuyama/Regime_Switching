@@ -344,7 +344,7 @@ for (init in 1:nInit) {
       cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
       plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
       
-      if (sumLikBest < sumLik[iter][[1]]) {with_no_grad({thetaBest <- torch_clone(theta)})}
+      if (sumLikBest < sumLik[iter][[1]]) {with_no_grad({thetaBest <- as.list(theta)})}
       sumLikBest <- max(sumLikBest, sumLik[iter][[1]])
       
       # run adam function defined above
