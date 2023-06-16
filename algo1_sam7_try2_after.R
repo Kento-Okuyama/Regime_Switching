@@ -247,6 +247,11 @@ i <- 50 # person E {1, ... , N}
 plot(dropout[i,], lwd=1.5, ylim=c(0,1), type="l")
 lines(mPr[i,2:(Nt+1)], lwd=1.5, col=c[i%%8]) 
 
+for (t in 1:Nt) {
+  cat('\n', 't=', t, '\n')
+  print(table(as.numeric((dropout - mPr[i,2:(Nt+1)] > .5)[,t]))) }
+
+
 mean(abs(mPr[,2:(Nt+1)] - torch_tensor(dropout)))
 table(as.numeric(mPr[,2:(Nt+1)] > .5 - torch_tensor(dropout)))
 
