@@ -17,7 +17,7 @@ library(reticulate)
 # for reproducibility 
 set.seed(42)
 # number of parameter initialization
-nInit <- 3
+nInit <- 5
 # a very small number
 epsilon <- 1e-6
 # a very large number
@@ -74,12 +74,12 @@ for (init in 1:nInit) {
   # step 3: initialize parameters
   a1 <- rnorm(Nf)
   a2 <- rnorm(Nf)
-  B1d <- runif(Nf, min=.5, max=1)
-  B2d <- runif(Nf, min=.5, max=1)
+  B1d <- runif(Nf, min=0, max=1)
+  B2d <- runif(Nf, min=0, max=1)
   k1 <- rnorm(No)
   k2 <- rnorm(No)
-  Lmd1v <- runif(No, min=.5, max=1)
-  Lmd2v <- runif(No, min=.5, max=1)
+  Lmd1v <- runif(No, min=0, max=1)
+  Lmd2v <- runif(No, min=0, max=1)
   alpha1 <- rnorm(1)
   alpha2 <- rnorm(1)
   beta1 <- rnorm(Nf12)
@@ -162,7 +162,7 @@ for (init in 1:nInit) {
       
       # step 4: initialize latent variables
       mEta[,1,,] <- 0
-      mP[,1,,,] <- 0; mP[,1,,,]$add_(1e1 * torch_eye(Nf)) 
+      mP[,1,,,] <- 0; mP[,1,,,]$add_(1e2 * torch_eye(Nf)) 
       
       # step 5: initialize P(s'|eta_0)
       mPr[,1] <- epsilon 
@@ -282,11 +282,7 @@ for (init in 1:nInit) {
               jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
               jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
               jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
-              jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } 
-          
-          # if someone dropped out in the last time period, Pr[s,s'|eta_{t-1}] is updated  
-          jPr[,t,1,] <- jPr[,t,1,] * torch_unsqueeze(1-dropout[,t-1], dim=-1)
-          jPr[,t,2,] <- jPr[,t,2,] * torch_unsqueeze(1-dropout[,t-1], dim=-1) + torch_unsqueeze(dropout[,t-1], dim=-1) }
+              jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } }
         
         if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
         } else if (length(noNaRows[[t]]) == N) {
