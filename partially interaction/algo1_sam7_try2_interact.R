@@ -17,7 +17,7 @@ library(reticulate)
 # for reproducibility 
 set.seed(42)
 # number of parameter initialization
-nInit <- 1
+nInit <- 3
 # a very small number
 epsilon <- 1e-6
 # a very large number
