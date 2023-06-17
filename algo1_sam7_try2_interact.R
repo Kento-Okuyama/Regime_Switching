@@ -47,6 +47,14 @@ for (f in 1:Nf) {
   if (etaSd[f] == 0) {eta[,,f] <- eta[,,f] - eta1Mean[f]}
   else {eta[,,f] <- (eta[,,f] - eta1Mean[f]) / etaSd[f]} } 
 
+etaComb <- eta3DComb
+Nf12 <- dim(eta3DComb)[3]
+etaComb1Mean <- colMeans(etaComb[,1,], na.rm=TRUE)
+etaCombSd <- sqrt(diag(var(etaComb[,1,], na.rm=TRUE)))
+for (f in 1:Nf12) {
+  if (etaCombSd[f] == 0) {etaComb[,,f] <- etaComb[,,f] - etaComb1Mean[f]}
+  else {etaComb[,,f] <- (etaComb[,,f] - etaComb1Mean[f]) / etaCombSd[f]} } 
+
 sumLikBest <- 0
 
 ###################################
@@ -74,8 +82,8 @@ for (init in 1:nInit) {
   Lmd2v <- runif(No, min=.5, max=1)
   alpha1 <- rnorm(1)
   alpha2 <- rnorm(1)
-  beta1 <- rnorm(Nf)
-  beta2 <- rnorm(Nf)
+  beta1 <- rnorm(Nf12)
+  beta2 <- rnorm(Nf12)
   Q1d <- rchisq(Nf, df=1)
   Q2d <- rchisq(Nf, df=1)
   R1d <- rchisq(No, df=1)
@@ -155,13 +163,13 @@ for (init in 1:nInit) {
       # step 4: initialize latent variables
       mEta[,1,,] <- 0
       mP[,1,,,] <- 0; mP[,1,,,]$add_(1e1 * torch_eye(Nf)) 
-
+      
       # step 5: initialize P(s'|eta_0)
       mPr[,1] <- epsilon 
       
       # store the pair (s,s') as data frame 
       jS <- expand.grid(s1=c(1,2), s2=c(1,2))
-  
+      
       # step 6
       for (t in 1:Nt) { 
         cat('   t=', t, '\n')
@@ -185,7 +193,7 @@ for (init in 1:nInit) {
             while (sum(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon) > 0) {
               jPInd <- which(as.numeric(torch_det(jP[,t,s1,s2,,])) < epsilon)
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(1e-1 * torch_eye(Nf))} } }) # add a small constant to ensure p.d.
-
+          
           # why does R skip the line below sometimes?
           jV[,t,s1,s2,] <- torch_tensor(y[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]))
           jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
@@ -198,7 +206,7 @@ for (init in 1:nInit) {
             while (sum(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon) > 0) {
               jFInd <- which(as.numeric(torch_det(jF[,t,s1,s2,,])) < epsilon)
               for (ind in jFInd) {jF[ind,t,s1,s2,,]$add_(5e-1 * torch_eye(No))} } }) # add a small constant to ensure p.s.d.
-
+          
           if (length(naRows[[t]]) == N) {
             jEta2[,t,s1,s2,] <- torch_clone(jEta[,t,s1,s2,]) 
             jP2[,t,s1,s2,,] <- torch_clone(jP[,t,s1,s2,,]) 
@@ -228,7 +236,7 @@ for (init in 1:nInit) {
           for (noNaRow in noNaRows[[t]]) {
             jLik[noNaRow,t,s1,s2] <- torch_squeeze((-.5*pi)**(-Nf/2) * torch_det(torch_clone(jP[noNaRow,t,s1,s2,,]))**(-1) * torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), linalg_inv_ex(torch_clone(jP[noNaRow,t,s1,s2,,]))$inverse), torch_clone(jDelta[noNaRow,t,s1,s2,])))) # Eq.12 
             with_no_grad (jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], ceil)) } } 
-
+        
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
           tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
@@ -239,14 +247,16 @@ for (init in 1:nInit) {
           jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) 
         } else {
           if (length(noNaRows[[t-1]]) == N) {
-            tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta[,t-1,]), beta[[1]]))
-            tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta[,t-1,]), beta[[2]])) 
+            tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(etaComb[,t-1,]), beta[[1]]))
+            tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[,t-1,]), beta[[2]])) 
+            
             # step 10: Hamilton Filter
             # joint probability P(s,s'|eta_{t-1})
             jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
             jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
             jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
             jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) 
+            
           } else if (length(naRows[[t-1]]) == N) {              
             tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
             tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]))
@@ -256,14 +266,16 @@ for (init in 1:nInit) {
             jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t]))
           } else { 
             for (noNaRow in noNaRows[[t-1]]) {
-              tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta[noNaRow,t-1,]), beta[[1]]))
-              tPr[noNaRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta[noNaRow,t-1,]), beta[[2]])) 
+              tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[1]]))
+              tPr[noNaRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[2]])) 
+              
               # step 10: Hamilton Filter
               # joint probability P(s,s'|eta_{t-1})
               jPr[noNaRow,t,2,2] <- torch_clone(tPr[noNaRow,t,2]) * torch_clone(mPr[noNaRow,t])
               jPr[noNaRow,t,2,1] <- torch_clone(tPr[noNaRow,t,1]) * (1-torch_clone(mPr[noNaRow,t]))
               jPr[noNaRow,t,1,2] <- (1-torch_clone(tPr[noNaRow,t,2])) * torch_clone(mPr[noNaRow,t])
               jPr[noNaRow,t,1,1] <- (1-torch_clone(tPr[noNaRow,t,1])) * (1-torch_clone(mPr[noNaRow,t])) } 
+            
             for (naRow in naRows[[t-1]]) {
               tPr[naRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
               tPr[naRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]))
@@ -358,7 +370,7 @@ for (init in 1:nInit) {
       
       # run adam function defined above
       with_no_grad({
-        result <- adam(loss=loss, theta=theta, m=m, v=v)
+        result <- adam2(loss=loss, theta=theta, m=m, v=v)
         theta <- result$theta
         m <- result$m 
         v <- result$v 
@@ -380,7 +392,7 @@ for (init in 1:nInit) {
         Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
-
+      
       if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
       iter <- iter + 1
     } }) # continue to numerical re-optimization 

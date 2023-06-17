@@ -2,6 +2,8 @@
 library(RColorBrewer)
 # install.packages("lavaan")
 library(lavaan)
+# install.packages("abind")
+library(abind)
 
 setwd("C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/WS23/Regime-Switching")
 
@@ -17,13 +19,13 @@ colnames(data)[92] <- "dropout"
 
 # select intra-individual observed variables
 cols_w <- c("Av1_state", "Iv1_state", "Uv1_state", "Co1_state", "Co2_state", "Leist_verstehen_state", "Leist_bearbeiten_state", 
-          "Leist_stress_state", "Leist_ueberfordert_state", "Angst_abbruch_state", "Angst_scheitern_state", "PANP01_state", 
-          "PANP05_state", "PANP08_state", "PANN01_state", "PANN05_state", "PANN09_state")
+            "Leist_stress_state", "Leist_ueberfordert_state", "Angst_abbruch_state", "Angst_scheitern_state", "PANP01_state", 
+            "PANP05_state", "PANP08_state", "PANN01_state", "PANN05_state", "PANN09_state")
 # select inter-individual observed variables
 cols_b <- c("abi_m_note", "fw_pkt", "gesamt_iq")
 
 cols <- c(cols_w, cols_b)
-  
+
 # number of observed variables that are used
 No <- length(cols)
 
@@ -55,8 +57,8 @@ table(unlist(dUDay))
 
 # rename within-variables
 cols_w <- c("Av", "Iv", "Uv", "Co1", "Co2", "understand1", "understand2",
-          "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
-          "NA1", "NA5", "NA9")
+            "stress1", "stress2", "AtF1", "AtF2", "PA1", "PA5", "PA8",
+            "NA1", "NA5", "NA9")
 # rename between-variables
 cols_b <- c("abiMath", "TIMMS", "totIQ")
 
@@ -159,8 +161,8 @@ y3D[is.na(y3D)] <- -1e30
 # impute dropout entries that are missing
 for (i in 1:N) {
   for (t in 2:Nt) {
-      if (y3D[i,t-1,nC3D] < 0) {next}
-      if (y3D[i,t,nC3D] < 0) {y3D[i,t,nC3D] <- y3D[i,t-1,nC3D] } } } 
+    if (y3D[i,t-1,nC3D] < 0) {next}
+    if (y3D[i,t,nC3D] < 0) {y3D[i,t,nC3D] <- y3D[i,t-1,nC3D] } } } 
 
 # there are less negative entries
 # table(y3D)
@@ -258,9 +260,6 @@ NAS =~ NA1 + NA5 + NA9
 IQ =~ abiMath + TIMMS + totIQ
 '
 
-# number of latent factor 
-Nf <- 8
-
 fit_cfas <- list()
 eta <- list()
 
@@ -270,6 +269,8 @@ eta2D <- lavPredict(fit_cfas, method='Bartlett')
 eta2D <- data.frame(eta2D)
 
 dim(eta2D) # number of valid observations (<< NxNt)
+# number of latent factor 
+Nf <- dim(eta2D)[2]
 
 # create NxNt array to store factore scores
 eta2DFull <- matrix(data=NA, nrow=NxNt, ncol=Nf+2)
@@ -313,12 +314,31 @@ for (i in 1:N) {
     if (is.na(eta3D[i,t-1,nC3D_eta])) {next}
     if (is.na(eta3D[i,t,nC3D_eta])) {eta3D[i,t,nC3D_eta] <- eta3D[i,t-1,nC3D_eta] } } } 
 
+######################################
+# add interaction of latent factors  #
+######################################
+
+# number of latent intra-individual factors
+Nf1 <- 7
+# number of latent inter-individual factors
+Nf2 <- 1
+
+# store the pair (Nf1,Nf2) as data frame 
+jNf12 <- expand.grid(f1=1:Nf1, f2=1:Nf2)
+eta3DInt <- array(NA, c(N, Nt, nrow(jNf12)))
+for (row in 1:nrow(jNf12)) {
+  f1 <- jNf12$f1[row]; f2 <- jNf12$f2[row]
+  eta3DInt[,,row] <- eta3D[,,f1] * eta3D[,,Nf1+f2] }
+# merge main effects and interaction effects
+eta3DComb <- abind(eta3D, eta3DInt, along=3)
+# number of total latent factors (including interaction)
+Nf12 <- dim(eta3DComb)[3]
+
 # save data as a list
-df <- list(eta2D=eta2DFull, eta3D=eta3D)
-eta2D <- df$eta2D
+df <- list(eta3D=eta3D, eta3DComb=eta3DComb)
 eta3D <- df$eta3D
+eta3DComb <- df$eta3DComb
 
 # sanity check: if eta2D and eta3D has same number of valid (non-NA) entries
-sum(rowSums(is.na(eta2D)) == 0)
 sum(is.na(apply(eta3D, 1:2, sum)) == 0)
-# sum(apply(is.na(eta3D) == 0, 1:2, min))
+sum(is.na(apply(eta3DComb, 1:2, sum)) == 0)
