@@ -20,8 +20,15 @@ Future:
 - simulation studies - multiple experiments? (not for master thesis)
 
 ## important files
-
+#### only main effects
 - data file (strictly confidential)
 - sam_preprocess: loading data & getting factor scores (Bartlett scores) of the data
 - adam: function that runs adam optimization
+- algo1_sam7_try: Kim filter and parameter optimization (Eigendecomposition + Diagonal purtubation)
+- algo1_sam7_try2_after: Kim filter for the etstimated model, and some evaluation
+
+#### partially interaction (Hamilton filter contains interaction)
+- sam_preprocess_interact: loading data & getting factor scores (Bartlett scores) of the data
+- adam2: function that runs adam optimization
 - algo1_sam7_try: Kim Filter and parameter optimization (Eigendecomposition + Diagonal purtubation)
+- algo1_sam7_try2_after_interact: Kim filter for the etstimated model, and some evaluation (not yet)
