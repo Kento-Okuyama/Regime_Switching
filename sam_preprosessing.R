@@ -93,9 +93,6 @@ y2D$abiMath[y2D$abiMath>=3.2 & y2D$abiMath<=3.5&is.na(y2D$abiMath)==FALSE] <- 8
 #########################################################
 # reshape the longitudinal data into 3D (N x Nt x nC3D) #
 #########################################################
-# col1-17 : cols: intra-individual observed variables
-# col18 : dropout : whether drop-out occurred (binary) 
-
 # number of columns
 nC3D <- nC2D - 2
 
@@ -159,14 +156,13 @@ y3D[is.na(y3D)] <- -1e30
 #       if (y3D[i,t-1,col] < 0) {next}
 #       if (y3D[i,t,col] < 0) {y3D[i,t,col] <- y3D[i,t-1,col] } } } }
 
-
+# impute dropout entries that are missing
 for (i in 1:N) {
   for (t in 2:Nt) {
       if (y3D[i,t-1,nC3D] < 0) {next}
       if (y3D[i,t,nC3D] < 0) {y3D[i,t,nC3D] <- y3D[i,t-1,nC3D] } } } 
 
-
-# there are less dropout = -1e30
+# there are less negative entries
 # table(y3D)
 
 ######################
@@ -178,9 +174,9 @@ for (i in 1:N) {
     if (y3D[i,t-1,nC3D] == 1) {y3D[i,t:Nt,nC3D] <- 1; break} } }
 
 # plot persons' drop out occurrence
-c <- brewer.pal(8, "Dark2")
-plot(y3D[1,,nC3D], type="l", ylim=c(0,1), lwd=1.5, xlab="day", ylab="dropout", main="dropout occurrence", yaxt="n")
-for (i in 2:N){lines(y3D[i,,nC3D], col=c[i%%8], lwd=1.5)}
+# c <- brewer.pal(8, "Dark2")
+# plot(y3D[1,,nC3D], type="l", ylim=c(0,1), lwd=1.5, xlab="day", ylab="dropout", main="dropout occurrence", yaxt="n")
+# for (i in 2:N){lines(y3D[i,,nC3D], col=c[i%%8], lwd=1.5)}
 
 # replace -1e30 with NA
 y3D[y3D==-1e30] <- NA
@@ -206,7 +202,7 @@ Nt <- dim(y3D)[2]
 # unique ID (updated)
 uID <- uID[complete.cases(y3D[,1,])]
 
-# remove rows with missing values at t=2
+# remove rows with missing values at t=1
 y3D <- y3D[complete.cases(y3D[,1,]),,] 
 # dim(y3D)
 
@@ -287,7 +283,7 @@ for (i in 1:NxNt) {
     eta2DFull[i,(1:Nf)+2] <- eta2D[count,]
     count <- count + 1 } }
 
-eta2DFull[,c(1,2,nC2D_eta)] <- y2D[,c(1,2,nC2D)]
+eta2DFull[,c(1,2)] <- y2D[,c(1,2)]
 
 # valid observations (same as eta2D)
 sum(rowSums(is.na(eta2DFull)) == 0)
@@ -310,6 +306,13 @@ for (i in 1:N) {
   # take ith person's data from eta2D
   eta2DFull_i <- eta2DFull[eta2DFull$ID==uID[i],]
   for (t in 1:Nt) {eta3D[i,t,] <- as.numeric(eta2DFull_i[eta2DFull_i$day==uDay[t],3:nC2D_eta]) } } 
+
+# impute IQ entries that are missing
+for (i in 1:N) {
+  for (t in 2:Nt) {
+    if (is.na(eta3D[i,t-1,nC3D_eta])) {next}
+    if (is.na(eta3D[i,t,nC3D_eta])) {eta3D[i,t,nC3D_eta] <- eta3D[i,t-1,nC3D_eta] } } } 
+
 
 # save data as a list
 df <- list(eta2D=eta2DFull, eta3D=eta3D)
