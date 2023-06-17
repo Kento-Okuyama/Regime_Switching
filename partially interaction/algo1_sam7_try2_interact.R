@@ -282,7 +282,11 @@ for (init in 1:nInit) {
               jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
               jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
               jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
-              jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } }
+              jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } 
+          
+          # if someone dropped out in the last time period, Pr[s,s'|eta_{t-1}] is updated  
+          jPr[,t,1,] <- jPr[,t,1,] * torch_unsqueeze(1-dropout[,t-1], dim=-1)
+          jPr[,t,2,] <- jPr[,t,2,] * torch_unsqueeze(1-dropout[,t-1], dim=-1) + torch_unsqueeze(dropout[,t-1], dim=-1) }
         
         if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
         } else if (length(noNaRows[[t]]) == N) {
