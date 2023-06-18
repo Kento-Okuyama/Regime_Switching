@@ -8,9 +8,9 @@ k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
 Lmd1v <- torch_tensor(theta$Lmd1v, requires_grad=FALSE)
 Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
 alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
-alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
+# alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
 beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
-beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
+# beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
 Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
 Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
 R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
@@ -39,7 +39,7 @@ Q <- list(Q1, Q2)
 R1 <- torch_diag(R1d)
 R2 <- torch_diag(R2d)
 R <- list(R1, R2)
-theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
+theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, alpha1=alpha1, beta1=beta1, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
 
 # define variables
 jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.2 (LHS)
@@ -62,7 +62,7 @@ subEta <- torch_full(c(N,2,2,Nf), NaN)
 
 # step 4: initialize latent variables
 mEta[,1,,] <- 0
-mP[,1,,,] <- 0; mP[,1,,,]$add_(1e1 * torch_eye(Nf)) 
+mP[,1,,,] <- 0; mP[,1,,,]$add_(1e2 * torch_eye(Nf)) 
 
 # step 5: initialize P(s'|eta_0)
 mPr[,1] <- epsilon 
@@ -140,7 +140,7 @@ for (t in 1:Nt) {
   # step 9: transition probability P(s|s',eta_{t-1})  
   if (t == 1) {
     tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-    tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]))
+    tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
     jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
     jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
     jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
@@ -148,7 +148,7 @@ for (t in 1:Nt) {
   } else {
     if (length(noNaRows[[t-1]]) == N) {
       tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(etaComb[,t-1,]), beta[[1]]))
-      tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[,t-1,]), beta[[2]])) 
+      tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[,t-1,]), beta[[2]])) 
       
       # step 10: Hamilton Filter
       # joint probability P(s,s'|eta_{t-1})
@@ -159,7 +159,7 @@ for (t in 1:Nt) {
       
     } else if (length(naRows[[t-1]]) == N) {              
       tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-      tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]))
+      tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
       jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
       jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
       jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
@@ -167,7 +167,7 @@ for (t in 1:Nt) {
     } else { 
       for (noNaRow in noNaRows[[t-1]]) {
         tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[1]]))
-        tPr[noNaRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[2]])) 
+        tPr[noNaRow,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[2]])) 
         
         # step 10: Hamilton Filter
         # joint probability P(s,s'|eta_{t-1})
@@ -178,12 +178,12 @@ for (t in 1:Nt) {
       
       for (naRow in naRows[[t-1]]) {
         tPr[naRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-        tPr[naRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]))
-        jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
+        tPr[naRow,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
+          jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
         jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
         jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
         jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } }
-    
+  
   if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
   } else if (length(noNaRows[[t]]) == N) {
     # marginal likelihood function f(eta_{t}|eta_{t-1})
@@ -252,7 +252,6 @@ for (t in 1:Nt) {
         mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
         for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(1e-1 * torch_eye(Nf))} } } }) }  # add a small constant to ensure p.s.d.
 
-set.seed(42)
 colors <- rainbow(N)
 c <- brewer.pal(8, "Dark2")
 

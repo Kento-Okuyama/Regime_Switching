@@ -13,7 +13,7 @@ adam2 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8
   
   with_no_grad({
     # store gradients
-    grad <- torch_cat(list(theta$a1$grad, theta$a2$grad, theta$B1d$grad, theta$B2d$grad, theta$k1$grad, theta$k2$grad, theta$Lmd1v$grad, theta$Lmd2v$grad, theta$alpha1$grad, theta$alpha2$grad, theta$beta1$grad, theta$beta2$grad, theta$Q1d$grad, theta$Q2d$grad, theta$R1d$grad, theta$R2d$grad))
+    grad <- torch_cat(list(theta$a1$grad, theta$a2$grad, theta$B1d$grad, theta$B2d$grad, theta$k1$grad, theta$k2$grad, theta$Lmd1v$grad, theta$Lmd2v$grad, theta$alpha1$grad, theta$beta1$grad, theta$Q1d$grad, theta$Q2d$grad, theta$R1d$grad, theta$R2d$grad))
     
     # update moment estimates
     m <- beta1 * m + (1 - beta1) * grad
@@ -45,12 +45,12 @@ adam2 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8
     index <- index + No
     theta$alpha1$sub_(lr * m_hat[(index+1):(index+1)] / denom[(index+1):(index+1)])
     index <- index + 1
-    theta$alpha2$sub_(lr * m_hat[(index+1):(index+1)] / denom[(index+1):(index+1)])
-    index <- index + 1
+    # theta$alpha2$sub_(lr * m_hat[(index+1):(index+1)] / denom[(index+1):(index+1)])
+    # index <- index + 1
     theta$beta1$sub_(lr * m_hat[(index+1):(index+Nf12)] / denom[(index+1):(index+Nf12)])
     index <- index + Nf
-    theta$beta2$sub_(lr * m_hat[(index+1):(index+Nf12)] / denom[(index+1):(index+Nf12)])
-    index <- index + Nf
+    # theta$beta2$sub_(lr * m_hat[(index+1):(index+Nf12)] / denom[(index+1):(index+Nf12)])
+    # index <- index + Nf
     theta$Q1d$sub_(lr * m_hat[(index+1):(index+Nf)] / denom[(index+1):(index+Nf)])
     index <- index + Nf
     theta$Q2d$sub_(lr * m_hat[(index+1):(index+Nf)] / denom[(index+1):(index+Nf)])
