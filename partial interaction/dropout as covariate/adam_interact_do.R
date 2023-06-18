@@ -56,7 +56,7 @@ adam3 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8
     # theta$alpha2$sub_(lr * m_hat[(index+1):(index+1)] / denom[(index+1):(index+1)])
     # index <- index + 1
     theta$beta1$sub_(lr * m_hat[(index+1):(index+Nf12)] / denom[(index+1):(index+Nf12)])
-    index <- index + Nf
+    index <- index + Nf12
     # theta$beta2$sub_(lr * m_hat[(index+1):(index+Nf12)] / denom[(index+1):(index+Nf12)])
     # index <- index + Nf
     theta$Q1d$sub_(lr * m_hat[(index+1):(index+Nf)] / denom[(index+1):(index+Nf)])

@@ -14,6 +14,8 @@ Remedies for p.d. violation
 Evaluation of the estimated models
 - compare trajectories of estimated S_{it} and parameters against dropout occurences
 ... no reliable estimate produced
+Lmd not used
+
 
 Adding interaction effects
 - added interaction effects to the transition probability (Hamilton filter part)
