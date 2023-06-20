@@ -471,7 +471,7 @@ try ({
           for (row in 1:N) {mP[row,t+1,s1,,] <- torch_matmul(torch_matmul(mPEig[[2]]$real[row,,], torch_diag(mPEig[[1]]$real[row,])), torch_transpose(mPEig[[2]]$real[row,,], 1, 2))}
           while (sum(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon) > 0) {
             mPInd <- which(as.numeric(torch_det(mP[,t+1,s1,,])) < epsilon)
-            for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(3e-1 * torch_eye(Nf1))} } } }) }  # add a small constant to ensure p.s.d.
+            for (ind in mPInd) {mP[ind,t+1,s1,,]$add_(3e-1 * torch_eye(Nf1))} } } }) }
     
     # aggregated (summed) likelihood at each optimization step
     loss <- torch_nansum(-torch_clone(mLik))
@@ -523,6 +523,4 @@ try ({
       R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
     
     if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
-    iter <- iter + 1
-  } }) # continue to numerical re-optimization 
-
+    iter <- iter + 1 } }) # continue to numerical re-optimization 

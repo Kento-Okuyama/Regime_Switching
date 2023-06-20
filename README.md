@@ -2,9 +2,7 @@
 
 Current problems
 - evaluation of the estimated models (latent variables, dynamic regime indicators, parameters)
-- dropout indicator to be used as covariate?
-- adding interaction of intra- and inter-individual latent factors (in both state-space model and Hamilton filter)?
-- optimization is interrupted by errors (errors happen at random)
+- optimization is interrupted by errors which happen at random
 (- calibration of stopping criterion)
 
 Remedies for p.d. violation
@@ -16,15 +14,18 @@ Evaluation of the estimated models
 ... no reliable estimate produced
 Lmd not used
 
+Adding dropout indicator
+- AR(1) model (Kalman filter)
 
 Adding interaction effects
-- added interaction effects to the transition probability (Hamilton filter part)
+- transition probability (Hamilton filter)
+- AR(1) model (Kalman filter)
 
 Future:
 - simulation studies - multiple experiments? (not for master thesis)
 
-## file description
+## file description (interaction in both the kalman filter and hamilton filter + dropout as a covariate in the Kalman filter)
 - sam_preprocessing: loading data & getting factor scores (Bartlett scores) of the data
 - adam: function that runs adam optimization
 - algo: Kim Filter and parameter optimization (Eigendecomposition + Diagonal purtubation)
-- algo_after: Kim filter for the etstimated model, and some evaluation (not yet)
+- algo_after: Kim filter for the etstimated model, and some evaluation
