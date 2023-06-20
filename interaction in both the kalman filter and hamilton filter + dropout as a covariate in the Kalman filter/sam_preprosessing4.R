@@ -343,7 +343,7 @@ eta3D12 <- abind(eta3D, eta3DInt, along=3)
 Nf12 <- dim(eta3D12)[3]
 
 eta3D1 <- eta3D[,,1:Nf1] # take only intra-individual factors
-eta3D2 <- eta3D[,,(Nf1+1):Nf] # take only inter-individual factors
+eta3D2 <- eta3D[,1,(Nf1+1):Nf] # take only inter-individual factors
   
 # save data as a list
 df <- list(eta3D=eta3D, eta3D12=eta3D12, eta3D1=eta3D1, eta3D2=eta3D2)

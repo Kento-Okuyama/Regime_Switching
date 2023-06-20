@@ -105,7 +105,7 @@ for (t in 1:Nt) {
   # step 7: Kalman Filter
   for (js in 1:nrow(jS)) {
     s1 <- jS$s1[js]; s2 <- jS$s2[js]
-    jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_matmul(torch_clone(mEta[,t,s2,]), C[[s1]]) * torch_unsqueeze(torch_tensor(eta2[,t]), dim=-1) + torch_unsqueeze(torch_tensor(x[,t]), dim=-1) * torch_unsqueeze(D[[s1]], dim=1) # Eq.2
+    jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_matmul(torch_clone(mEta[,t,s2,]), C[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_unsqueeze(torch_tensor(x[,t]), dim=-1) * torch_unsqueeze(D[[s1]], dim=1) # Eq.2
     jDelta[,t,s1,s2,] <- torch_tensor(eta1[,t,]) - torch_clone(jEta[,t,s1,s2,]) # Eq.3
     with_no_grad({ 
       jDelta[,t,s1,s2,][jDelta[,t,s1,s2,] > ceil] <- ceil
@@ -122,7 +122,7 @@ for (t in 1:Nt) {
         for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(3e-1 * torch_eye(Nf1))} } }) # add a small constant to ensure p.d.
     
     # why does R skip the line below sometimes?
-    jV[,t,s1,s2,] <- torch_tensor(y1[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Omega[[s1]]) * torch_unsqueeze(torch_tensor(eta2[,t]), dim=-1) + torch_unsqueeze(torch_tensor(x[,t]), dim=-1) * torch_unsqueeze(A[[s1]], dim=1)) # Eq.5
+    jV[,t,s1,s2,] <- torch_tensor(y1[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Omega[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_unsqueeze(torch_tensor(x[,t]), dim=-1) * torch_unsqueeze(A[[s1]], dim=1)) # Eq.5
     jF[,t,s1,s2,,] <- torch_matmul(torch_matmul(torch_transpose(Lmd[[s1]], 1, 2), torch_clone(jP[,t,s1,s2,,])), Lmd[[s1]]) + R[[s1]] # Eq.6
     with_no_grad ({
       jF[,t,s1,s2,,] <- (jF[,t,s1,s2,,] + torch_transpose(jF[,t,s1,s2,,], 2, 3)) / 2 # ensure symmetry
@@ -166,8 +166,8 @@ for (t in 1:Nt) {
   
   # step 9: transition probability P(s|s',eta_{t-1})  
   if (t == 1) {
-    tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-    tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
+    tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]] + torch_tensor(eta2) * beta[[1]][(Nf1+1):Nf]))
+    tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]] + torch_tensor(eta2) * beta[[2]][(Nf1+1):Nf]))
     jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
     jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
     jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
@@ -185,12 +185,7 @@ for (t in 1:Nt) {
       jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) 
       
     } else if (length(naRows[[t-1]]) == N) {              
-      tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-      tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
-      jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
-      jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
-      jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
-      jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t]))
+      jPr[,t,,] <- jPr2[,t-1,,]
     } else { 
       for (noNaRow in noNaRows[[t-1]]) {
         tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta12[noNaRow,t-1,]), beta[[1]]))
@@ -204,12 +199,7 @@ for (t in 1:Nt) {
         jPr[noNaRow,t,1,1] <- (1-torch_clone(tPr[noNaRow,t,1])) * (1-torch_clone(mPr[noNaRow,t])) } 
       
       for (naRow in naRows[[t-1]]) {
-        tPr[naRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-        tPr[naRow,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
-        jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
-        jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
-        jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
-        jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } }
+        jPr[naRow,t,,] <- jPr2[naRow,t-1,,]} } }
   
   if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
   } else if (length(noNaRows[[t]]) == N) {
@@ -250,6 +240,9 @@ for (t in 1:Nt) {
           for (ind in WInd) {W[ind,t,s1,s2] <- 1 - epsilon} } } }) }
   
   mEta[,t+1,,] <- torch_sum(torch_unsqueeze(torch_clone(W[,t,,]), dim=-1) * torch_clone(jEta2[,t,,,]), dim=3)
+  with_no_grad({
+    mEta[,t+1,,][mEta[,t+1,,] > ceil] <- ceil
+    mEta[,t+1,,][mEta[,t+1,,] < -ceil] <- -ceil})
   subEta <- torch_unsqueeze(torch_clone(mEta[,t+1,,]), dim=-2) - torch_clone(jEta2[,t,,,])
   with_no_grad({ 
     subEta[abs(subEta) < epsilon] <- epsilon 
@@ -286,23 +279,23 @@ colors <- rainbow(N)
 c <- brewer.pal(8, "Dark2")
 
 i <- 50 # person E {1, ... , N}
-plot(dropout[i,], lwd=1.5, ylim=c(0,1), type="l")
+plot(x[i,], lwd=1.5, ylim=c(0,1), type="l")
 lines(mPr[i,2:(Nt+1)], lwd=1.5, col=c[i%%8]) 
 
 for (t in 1:Nt) {
   cat('\n', 't=', t, '\n')
-  print(table(as.numeric((dropout - mPr[i,2:(Nt+1)] > .5)[,t]))) }
+  print(table(as.numeric((x - mPr[i,2:(Nt+1)] > .5)[,t]))) }
 
 
-mean(abs(mPr[,2:(Nt+1)] - torch_tensor(dropout)))
-table(as.numeric(mPr[,2:(Nt+1)] > .5 - torch_tensor(dropout)))
+mean(abs(mPr[,2:(Nt+1)] - torch_tensor(x)))
+table(as.numeric(mPr[,2:(Nt+1)] > .5 - torch_tensor(x)))
 
-dropout[1,] # drop out at t=21
+x[1,] # drop out at t=21
 as.numeric(mPr[1,2:(Nt+1)] > .5) # drop out at t=19
 
-dropout[2,] # drop out at t=51
+x[2,] # drop out at t=51
 as.numeric(mPr[2,2:(Nt+1)] > .5) # drop out at t=28
 
-dropout[3,] # no drop out
+x[3,] # no drop out
 as.numeric(mPr[3,2:(Nt+1)] > .5) # no drop out
 

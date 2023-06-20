@@ -17,7 +17,7 @@ library(reticulate)
 # for reproducibility 
 set.seed(42)
 # number of parameter initialization
-nInit <- 5
+nInit <- 1
 # a very small number
 epsilon <- 1e-6
 # a very large number
@@ -76,8 +76,8 @@ for (init in 1:nInit) {
   a2 <- rnorm(Nf)
   B1d <- runif(Nf, min=0, max=1)
   B2d <- runif(Nf, min=0, max=1)
-  c1 <- rnorm(Nf)
-  c2 <- rnorm(Nf)
+  C1 <- rnorm(Nf)
+  C2 <- rnorm(Nf)
   k1 <- rnorm(No)
   k2 <- rnorm(No)
   Lmd1v <- runif(No, min=0, max=1)
@@ -112,9 +112,9 @@ for (init in 1:nInit) {
       B1 <- torch_diag(B1d)
       B2 <- torch_diag(B2d)
       B <- list(B1, B2)
-      c1 <- torch_tensor(c1, requires_grad=TRUE)
-      c2 <- torch_tensor(c2, requires_grad=TRUE)
-      c <- list(c1, c2)
+      C1 <- torch_tensor(C1, requires_grad=TRUE)
+      C2 <- torch_tensor(C2, requires_grad=TRUE)
+      C <- list(C1, C2)
       k1 <- torch_tensor(k1, requires_grad=TRUE)
       k2 <- torch_tensor(k2, requires_grad=TRUE)
       k <- list(k1, k2)
@@ -149,7 +149,7 @@ for (init in 1:nInit) {
       R1 <- torch_diag(R1d)
       R2 <- torch_diag(R2d)
       R <- list(R1, R2)
-      theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, c1=c1, c2=c2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, A1=A1, A2=A2, alpha1=alpha1, beta1=beta1, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
+      theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1=C1, C2=C2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, A1=A1, A2=A2, alpha1=alpha1, beta1=beta1, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
       
       # define variables
       jEta <- torch_full(c(N,Nt,2,2,Nf), NaN) # Eq.2 (LHS)
@@ -191,7 +191,7 @@ for (init in 1:nInit) {
         # step 7: Kalman Filter
         for (js in 1:nrow(jS)) {
           s1 <- jS$s1[js]; s2 <- jS$s2[js]
-          jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_unsqueeze(torch_tensor(dropout[,t]), dim=-1) * torch_unsqueeze(c[[s1]], dim=1) # Eq.2
+          jEta[,t,s1,s2,] <- torch_unsqueeze(a[[s1]], dim=1) + torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_unsqueeze(torch_tensor(dropout[,t]), dim=-1) * torch_unsqueeze(C[[s1]], dim=1) # Eq.2
           jDelta[,t,s1,s2,] <- torch_tensor(eta[,t,]) - torch_clone(jEta[,t,s1,s2,]) # Eq.3
           jP[,t,s1,s2,,] <- torch_matmul(torch_matmul(B[[s1]], torch_clone(mP[,t,s2,,])), B[[s1]]) + Q[[s1]] # Eq.4
           with_no_grad ({
@@ -268,13 +268,9 @@ for (init in 1:nInit) {
             jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) 
             
           } else if (length(naRows[[t-1]]) == N) {              
-            tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-            tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
-            jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
-            jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
-            jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
-            jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t]))
-          } else { 
+            jPr[,t,,] <- jPr2[,t-1,,] 
+          } else {
+            
             for (noNaRow in noNaRows[[t-1]]) {
               tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[1]]))
               tPr[noNaRow,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(etaComb[noNaRow,t-1,]), beta[[2]])) 
@@ -286,13 +282,7 @@ for (init in 1:nInit) {
               jPr[noNaRow,t,1,2] <- (1-torch_clone(tPr[noNaRow,t,2])) * torch_clone(mPr[noNaRow,t])
               jPr[noNaRow,t,1,1] <- (1-torch_clone(tPr[noNaRow,t,1])) * (1-torch_clone(mPr[noNaRow,t])) } 
             
-            for (naRow in naRows[[t-1]]) {
-              tPr[naRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]))
-              tPr[naRow,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]]))
-              jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
-              jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
-              jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
-              jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) } } }
+            for (naRow in naRows[[t-1]]) {jPr[naRow,t,,] <- jPr2[naRow,t-1,,]} } }
         
         if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
         } else if (length(noNaRows[[t]]) == N) {
@@ -390,8 +380,8 @@ for (init in 1:nInit) {
         a2 <- torch_tensor(theta$a2, requires_grad=FALSE)
         B1d <- torch_tensor(theta$B1d, requires_grad=FALSE)
         B2d <- torch_tensor(theta$B2d, requires_grad=FALSE)
-        c1 <- torch_tensor(theta$c1, requires_grad=FALSE)
-        c2 <- torch_tensor(theta$c2, requires_grad=FALSE)
+        C1 <- torch_tensor(theta$C1, requires_grad=FALSE)
+        C2 <- torch_tensor(theta$C2, requires_grad=FALSE)
         k1 <- torch_tensor(theta$k1, requires_grad=FALSE)
         k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
         A1 <- torch_tensor(theta$A1, requires_grad=FALSE)

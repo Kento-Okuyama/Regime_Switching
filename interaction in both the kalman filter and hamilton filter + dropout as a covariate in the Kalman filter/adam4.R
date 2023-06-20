@@ -25,7 +25,7 @@ adam4 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8
     
     # Update parameters using Adam update rule
     denom <- sqrt(v_hat) + epsilon
-    denom[denom < epsilon] <- denom[denom < epsilon] + epsilon
+    denom[denom < epsilon]$add_(epsilon)
     index <- 0
     theta$a1$sub_(lr * m_hat[(index+1):(index+Nf1)] / denom[(index+1):(index+Nf1)])
     index <- index + Nf1
