@@ -17,7 +17,7 @@ library(reticulate)
 # for reproducibility 
 set.seed(42)
 # number of parameter initialization
-nInit <- 3
+nInit <- 15
 # a very small number
 epsilon <- 1e-6
 # a very large number
@@ -135,7 +135,7 @@ for (init in 1:nInit) {
   m <- v <- NULL
   
   try ({
-    while (count < 3) {
+    while (count < 3 && iter < 10) {
       cat('   optimization step: ', as.numeric(iter), '\n')
       a1 <- torch_tensor(a1, requires_grad=TRUE)
       a2 <- torch_tensor(a2, requires_grad=TRUE)
@@ -527,6 +527,6 @@ for (init in 1:nInit) {
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
       
-      if (count==3 || iter > 100) {print('   stopping criterion is met'); break}
+      if (count==2 || iter == 10) {print('   stopping criterion is met')}
       iter <- iter + 1 } }) # continue to numerical re-optimization 
 } # continue to re-initialization of parameters

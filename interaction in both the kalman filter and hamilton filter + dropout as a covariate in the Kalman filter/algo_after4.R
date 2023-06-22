@@ -351,3 +351,4 @@ cat('data', '\n', x[i,], '\n'); cat('prediction (hard clustering)', '\n', as.num
 for (t in 1:Nt) {
 cat('\n', 't=', t, '\n')
 print(table(as.numeric((x - mPr[i,2:(Nt+1)] > .5)[,t]))) }
+
