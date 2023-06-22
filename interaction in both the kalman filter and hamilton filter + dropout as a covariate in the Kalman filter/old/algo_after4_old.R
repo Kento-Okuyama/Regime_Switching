@@ -47,13 +47,11 @@ A1 <- torch_tensor(A1, requires_grad=TRUE)
 A2 <- torch_tensor(A2, requires_grad=TRUE)
 A <- list(A1, A2)
 alpha1 <- torch_tensor(alpha1, requires_grad=TRUE)
-alpha2 <- torch_tensor(alpha2, requires_grad=TRUE)
-# alpha <- list(alpha1) 
-alpha <- list(alpha1, alpha2)
+# alpha2 <- torch_tensor(alpha2, requires_grad=TRUE)
+alpha <- list(alpha1) # alpha <- list(alpha1, alpha2)
 beta1 <- torch_tensor(beta1, requires_grad=TRUE)
-beta2 <- torch_tensor(beta2, requires_grad=TRUE)
-# beta <- list(beta1) 
-beta <- list(beta1, beta2)
+# beta2 <- torch_tensor(beta2, requires_grad=TRUE)
+beta <- list(beta1) # beta <- list(beta1, beta2)
 Q1d <- torch_tensor(Q1d, requires_grad=TRUE)
 Q2d <- torch_tensor(Q2d, requires_grad=TRUE)
 Q1 <- torch_diag(Q1d)
@@ -65,7 +63,7 @@ R1 <- torch_diag(R1d)
 R2 <- torch_diag(R2d)
 R <- list(R1, R2)
 
-theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
+theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, beta1=beta1, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
 
 # define variables
 jEta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.2 (LHS)
@@ -96,105 +94,7 @@ mPr[,1] <- epsilon
 # store the pair (s,s') as data frame 
 jS <- expand.grid(s1=c(1,2), s2=c(1,2))
 
-try ({
-  while (count < 3) {
-    cat('   optimization step: ', as.numeric(iter), '\n')
-    a1 <- torch_tensor(a1, requires_grad=TRUE)
-    a2 <- torch_tensor(a2, requires_grad=TRUE)
-    a <- list(a1, a2)
-    B1d <- torch_tensor(B1d, requires_grad=TRUE)
-    B2d <- torch_tensor(B2d, requires_grad=TRUE)
-    B1 <- torch_diag(B1d)
-    B2 <- torch_diag(B2d)
-    B <- list(B1, B2)
-    C1d <- torch_tensor(C1d, requires_grad=TRUE)
-    C2d <- torch_tensor(C2d, requires_grad=TRUE)
-    C1 <- torch_diag(C1d)
-    C2 <- torch_diag(C2d)
-    C <- list(C1, C2)
-    D1 <- torch_tensor(D1, requires_grad=TRUE)
-    D2 <- torch_tensor(D2, requires_grad=TRUE)
-    D <- list(D1, D2)
-    k1 <- torch_tensor(k1, requires_grad=TRUE)
-    k2 <- torch_tensor(k2, requires_grad=TRUE)
-    k <- list(k1, k2)
-    Lmd1v <- torch_tensor(Lmd1v, requires_grad=TRUE)
-    Lmd2v <- torch_tensor(Lmd2v, requires_grad=TRUE)
-    Lmd1 <- Lmd2 <- torch_full(c(Nf1,No1), 0)
-    Lmd1[1,1:3] <- Lmd1v[1:3]; Lmd1[2,4:5] <- Lmd1v[4:5]
-    Lmd1[3,6:7] <- Lmd1v[6:7]; Lmd1[4,8:9] <- Lmd1v[8:9]
-    Lmd1[5,10:11] <- Lmd1v[10:11]; Lmd1[6,12:14] <- Lmd1v[12:14]
-    Lmd1[7,15:17] <- Lmd1v[15:17]
-    Lmd2[1,1:3] <- Lmd2v[1:3]; Lmd2[2,4:5] <- Lmd2v[4:5]
-    Lmd2[3,6:7] <- Lmd2v[6:7]; Lmd2[4,8:9] <- Lmd2v[8:9]
-    Lmd2[5,10:11] <- Lmd2v[10:11]; Lmd2[6,12:14] <- Lmd2v[12:14]
-    Lmd2[7,15:17] <- Lmd2v[15:17]
-    Lmd <- list(Lmd1, Lmd2)
-    Omega1v <- torch_tensor(Omega1v, requires_grad=TRUE)
-    Omega2v <- torch_tensor(Omega2v, requires_grad=TRUE)
-    Omega1 <- Omega2 <- torch_full(c(Nf1,No1), 0)
-    Omega1[1,1:3] <- Omega1v[1:3]; Omega1[2,4:5] <- Omega1v[4:5]
-    Omega1[3,6:7] <- Omega1v[6:7]; Omega1[4,8:9] <- Omega1v[8:9]
-    Omega1[5,10:11] <- Omega1v[10:11]; Omega1[6,12:14] <- Omega1v[12:14]
-    Omega1[7,15:17] <- Omega1v[15:17]
-    Omega2[1,1:3] <- Omega2v[1:3]; Omega2[2,4:5] <- Omega2v[4:5]
-    Omega2[3,6:7] <- Omega2v[6:7]; Omega2[4,8:9] <- Omega2v[8:9]
-    Omega2[5,10:11] <- Omega2v[10:11]; Omega2[6,12:14] <- Omega2v[12:14]
-    Omega2[7,15:17] <- Omega2v[15:17]
-    Omega <- list(Omega1, Omega2)
-    A1 <- torch_tensor(A1, requires_grad=TRUE)
-    A2 <- torch_tensor(A2, requires_grad=TRUE)
-    A <- list(A1, A2)
-    alpha1 <- torch_tensor(alpha1, requires_grad=TRUE)
-    alpha2 <- torch_tensor(alpha2, requires_grad=TRUE)
-    # alpha <- list(alpha1) 
-    alpha <- list(alpha1, alpha2)
-    beta1 <- torch_tensor(beta1, requires_grad=TRUE)
-    beta2 <- torch_tensor(beta2, requires_grad=TRUE)
-    # beta <- list(beta1) 
-    beta <- list(beta1, beta2)
-    Q1d <- torch_tensor(Q1d, requires_grad=TRUE)
-    Q2d <- torch_tensor(Q2d, requires_grad=TRUE)
-    Q1 <- torch_diag(Q1d)
-    Q2 <- torch_diag(Q2d)
-    Q <- list(Q1, Q2)
-    R1d <- torch_tensor(R1d, requires_grad=TRUE)
-    R2d <- torch_tensor(R2d, requires_grad=TRUE)
-    R1 <- torch_diag(R1d)
-    R2 <- torch_diag(R2d)
-    R <- list(R1, R2)
-    theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
-    
-    # define variables
-    jEta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.2 (LHS)
-    jDelta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.3 (LHS)
-    jP <- jPChol <- torch_full(c(N,Nt,2,2,Nf1,Nf1), NaN) # Eq.4 (LHS)
-    jV <- torch_full(c(N,Nt,2,2,No1), NaN) # Eq.5 (LHS)
-    jF <- jFChol <- torch_full(c(N,Nt,2,2,No1,No1), NaN) # Eq.6 (LHS)
-    jEta2 <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.7 (LHS)
-    jP2 <- torch_full(c(N,Nt,2,2,Nf1,Nf1), NaN) # Eq.8 (LHS)
-    mEta <- torch_full(c(N,Nt+1,2,Nf1), NaN) # Eq.9-1 (LHS)
-    mP <- torch_full(c(N,Nt+1,2,Nf1,Nf1), NaN) # Eq.9-2 (LHS)
-    W <- torch_full(c(N,Nt,2,2), NaN) # Eq.9-3 (LHS)
-    jPr <- torch_full(c(N,Nt,2,2), NaN) # Eq.10-1 (LHS)
-    mLik <- torch_full(c(N,Nt), NaN) # Eq.10-2 (LHS)
-    jPr2 <- torch_full(c(N,Nt,2,2), NaN) # Eq.10-3 (LHS)
-    mPr <- torch_full(c(N,Nt+1), NaN) # Eq.10-4 (LHS)
-    jLik <- torch_full(c(N,Nt,2,2), NaN) # Eq.11 (LHS)
-    tPr <- torch_full(c(N,Nt,2), NaN) # Eq.12 (LHS)
-    subEta <- torch_full(c(N,2,2,Nf1), NaN)
-    
-    # step 4: initialize latent variables
-    mEta[,1,,] <- 0
-    mP[,1,,,] <- 0; mP[,1,,,]$add_(1e2 * torch_eye(Nf1)) 
-    
-    # step 5: initialize P(s'|eta_0)
-    mPr[,1] <- epsilon 
-    
-    # store the pair (s,s') as data frame 
-    jS <- expand.grid(s1=c(1,2), s2=c(1,2))
-    
-    # step 6
+# step 6
     for (t in 1:Nt) { 
       cat('   t=', t, '\n')
       # rows that does not have NA values 
@@ -298,7 +198,7 @@ try ({
       # step 9: transition probability P(s|s',eta_{t-1})  
       if (t == 1) {
         tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]] + torch_tensor(eta2) * beta[[1]][(Nf1+1):Nf]))
-        tPr[,t,2] <- 1 # torch_sigmoid(torch_squeeze(alpha[[2]] + torch_tensor(eta2) * beta[[2]][(Nf1+1):Nf]))
+        tPr[,t,2] <- .99 # torch_sigmoid(torch_squeeze(alpha[[2]] + torch_tensor(eta2) * beta[[2]][(Nf1+1):Nf]))
         
         jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
         jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
@@ -312,7 +212,7 @@ try ({
       } else {
         if (length(noNaRows[[t-1]]) == N) {
           tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta12[,t-1,]), beta[[1]]))
-          tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta12[,t-1,]), beta[[2]])) 
+          tPr[,t,2] <- .99 # torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta12[,t-1,]), beta[[2]])) 
           
           # step 10: Hamilton Filter
           # joint probability P(s,s'|eta_{t-1})
@@ -330,8 +230,8 @@ try ({
         } else { 
           for (noNaRow in noNaRows[[t-1]]) {
             tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta12[noNaRow,t-1,]), beta[[1]]))
-            tPr[noNaRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta12[noNaRow,t-1,]), beta[[2]])) 
-           
+            tPr[noNaRow,t,2] <- .99 # torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta12[noNaRow,t-1,]), beta[[2]])) 
+            
             # step 10: Hamilton Filter
             # joint probability P(s,s'|eta_{t-1})
             jPr[noNaRow,t,2,2] <- torch_clone(tPr[noNaRow,t,2]) * torch_clone(mPr[noNaRow,t])
@@ -343,10 +243,10 @@ try ({
               jPr[noNaRow,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) }) } 
           
           for (naRow in naRows[[t-1]]) {jPr[naRow,t,,] <- torch_clone(jPr2[naRow,t-1,,])} } }
-        with_no_grad ({
-          for (row in 1:N) {
-            if (as.numeric(torch_sum(jPr[row,t,,])) < epsilon) {jPr[row,t,,] <- jPr2[row,t-1,,]} } })
-        
+      with_no_grad ({
+        for (row in 1:N) {
+          if (as.numeric(torch_sum(jPr[row,t,,])) < epsilon) {jPr[row,t,,] <- jPr2[row,t-1,,]} } })
+      
       if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
       } else if (length(noNaRows[[t]]) == N) {
         # marginal likelihood function f(eta_{t}|eta_{t-1})
@@ -362,16 +262,16 @@ try ({
           for (row in 1:N) {
             if (as.numeric(torch_sum(jPr2[row,t,,])) < epsilon) {jPr2[row,t,,] <- jPr[row,t,,]} } }) 
         
-        } else {
-          for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- torch_clone(jPr[naRow,t,,])} 
-          for (noNaRow in noNaRows[[t]]) {
-            mLik[noNaRow,t] <- torch_sum(torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]))
-            with_no_grad(mLik[noNaRow,t] <- max(mLik[noNaRow,t], epsilon))
+      } else {
+        for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- torch_clone(jPr[naRow,t,,])} 
+        for (noNaRow in noNaRows[[t]]) {
+          mLik[noNaRow,t] <- torch_sum(torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]))
+          with_no_grad(mLik[noNaRow,t] <- max(mLik[noNaRow,t], epsilon))
           
-            # (updated) joint probability P(s,s'|eta_{t})
-            jPr2[noNaRow,t,,] <- torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]) / torch_clone(mLik[noNaRow,t]) 
-            with_no_grad ({
-              if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) < epsilon) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} }) } }
+          # (updated) joint probability P(s,s'|eta_{t})
+          jPr2[noNaRow,t,,] <- torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]) / torch_clone(mLik[noNaRow,t]) 
+          with_no_grad ({
+            if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) < epsilon) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} }) } }
       
       mPr[,t+1] <- torch_sum(torch_clone(jPr2[,t,2,]), dim=2)
       
@@ -392,11 +292,11 @@ try ({
         with_no_grad({
           for (s1 in 1:2) {
             while (sum(as.numeric(W[,t,s1,s2]) < 0) > 0) {
-              WInd <- which(as.numeric(W[,t,s1,s2]) < 0) 
+              WInd <- which(as.numeric(W[,t,s1,s2]) < 0) # cap from below
               for (ind in WInd) {W[ind,t,s1,s2] <- epsilon} }
             
             while (sum(as.numeric(W[,t,s1,s2]) > 1) > 0) {
-              WInd <- which(as.numeric(W[,t,s1,s2]) >= 1)
+              WInd <- which(as.numeric(W[,t,s1,s2]) >= 1) # cap from above
               for (ind in WInd) {W[ind,t,s1,s2] <- 1 - epsilon} } } }) }
       
       mEta[,t+1,,] <- torch_sum(torch_unsqueeze(torch_clone(W[,t,,]), dim=-1) * torch_clone(jEta2[,t,,,]), dim=3)

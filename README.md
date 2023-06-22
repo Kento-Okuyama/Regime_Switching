@@ -21,8 +21,13 @@ Adding interaction effects
 - transition probability (Hamilton filter)
 - AR(1) model (Kalman filter)
 
+To do:
+- ask about deleting switching back
+- 
+
 Future:
 - simulation studies - multiple experiments? (not for master thesis)
+
 
 ## file description (interaction in both the kalman filter and hamilton filter + dropout as a covariate in the Kalman filter)
 - sam_preprocessing: loading data & getting factor scores (Bartlett scores) of the data
