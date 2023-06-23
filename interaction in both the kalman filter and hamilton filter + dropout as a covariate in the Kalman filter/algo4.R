@@ -120,8 +120,12 @@ for (init in 1:nInit) {
   A2 <- rnorm(No1)
   alpha1 <- rnorm(1)
   alpha2 <- rnorm(1)
-  beta1 <- rnorm(Nf12)
-  beta2 <- rnorm(Nf12)
+  beta1 <- rnorm(Nf1)
+  beta2 <- rnorm(Nf1)
+  gamma1 <- rnorm(1)
+  gamma2 <- rnorm(1)
+  rho1 <- rnorm(Nf1)
+  rho2 <- rnorm(Nf1)
   Q1d <- rchisq(Nf1, df=1)
   Q2d <- rchisq(Nf1, df=1)
   R1d <- rchisq(No1, df=1)
@@ -185,12 +189,16 @@ for (init in 1:nInit) {
       A <- list(A1, A2)
       alpha1 <- torch_tensor(alpha1, requires_grad=TRUE)
       alpha2 <- torch_tensor(alpha2, requires_grad=TRUE)
-      # alpha <- list(alpha1) 
       alpha <- list(alpha1, alpha2)
       beta1 <- torch_tensor(beta1, requires_grad=TRUE)
       beta2 <- torch_tensor(beta2, requires_grad=TRUE)
-      # beta <- list(beta1) 
       beta <- list(beta1, beta2)
+      gamma1 <- torch_tensor(gamma1, requires_grad=TRUE)
+      gamma2 <- torch_tensor(gamma2, requires_grad=TRUE)
+      gamma <- list(gamma1, gamma2)
+      rho1 <- torch_tensor(rho1, requires_grad=TRUE)
+      rho2 <- torch_tensor(rho2, requires_grad=TRUE)
+      rho <- list(rho1, rho2)
       Q1d <- torch_tensor(Q1d, requires_grad=TRUE)
       Q2d <- torch_tensor(Q2d, requires_grad=TRUE)
       Q1 <- torch_diag(Q1d)
@@ -201,7 +209,7 @@ for (init in 1:nInit) {
       R1 <- torch_diag(R1d)
       R2 <- torch_diag(R2d)
       R <- list(R1, R2)
-      theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
+      theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, gamma1=gamma1, gamma2=gamma2, rho1=rho1, rho2=rho2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
       
       # define variables
       jEta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.2 (LHS)
@@ -333,10 +341,12 @@ for (init in 1:nInit) {
             jLik[noNaRow,t,s1,s2] <- torch_squeeze((-.5*pi)**(-Nf/2) * torch_det(torch_clone(jP[noNaRow,t,s1,s2,,]))**(-1) * torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), linalg_inv_ex(torch_clone(jP[noNaRow,t,s1,s2,,]))$inverse), torch_clone(jDelta[noNaRow,t,s1,s2,])))) 
             with_no_grad (jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], ceil)) } } 
         
+        torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_matmul(torch_clone(mEta[,t,s2,]), C[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), D[[s1]]) 
+        
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
-          tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]] + torch_tensor(eta2) * beta[[1]][(Nf1+1):Nf]))
-          tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]] + torch_tensor(eta2) * beta[[2]][(Nf1+1):Nf]))
+          tPr[,t,1] <- torch_sigmoid(alpha[[1]] + torch_tensor(eta2) * gamma[[1]])
+          tPr[,t,2] <- torch_sigmoid(alpha[[2]] + torch_tensor(eta2) * gamma[[2]])
           
           jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
           jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
@@ -349,8 +359,8 @@ for (init in 1:nInit) {
           
         } else {
           if (length(noNaRows[[t-1]]) == N) {
-            tPr[,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta12[,t-1,]), beta[[1]]))
-            tPr[,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta12[,t-1,]), beta[[2]])) 
+            tPr[,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(torch_tensor(eta1[,t-1,]), beta[[1]]) + torch_tensor(eta2) * gamma[[1]] + torch_matmul(torch_tensor(eta1[,t-1,]), rho[[1]]) * torch_tensor(eta2))
+            tPr[,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(torch_tensor(eta1[,t-1,]), beta[[2]]) + torch_tensor(eta2) * gamma[[2]] + torch_matmul(torch_tensor(eta1[,t-1,]), rho[[2]]) * torch_tensor(eta2))
             
             # step 10: Hamilton Filter
             # joint probability P(s,s'|eta_{t-1})
@@ -367,8 +377,8 @@ for (init in 1:nInit) {
           
           } else { 
             for (noNaRow in noNaRows[[t-1]]) {
-              tPr[noNaRow,t,1] <- torch_sigmoid(torch_squeeze(alpha[[1]]) + torch_matmul(torch_tensor(eta12[noNaRow,t-1,]), beta[[1]]))
-              tPr[noNaRow,t,2] <- torch_sigmoid(torch_squeeze(alpha[[2]]) + torch_matmul(torch_tensor(eta12[noNaRow,t-1,]), beta[[2]])) 
+              tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), beta[[1]]) + torch_tensor(eta2[noNaRow]) * gamma[[1]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), rho[[1]]) * torch_tensor(eta2[noNaRow]))
+              tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), beta[[2]]) + torch_tensor(eta2[noNaRow]) * gamma[[2]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), rho[[2]]) * torch_tensor(eta2[noNaRow]))
              
               # step 10: Hamilton Filter
               # joint probability P(s,s'|eta_{t-1})
@@ -522,6 +532,10 @@ for (init in 1:nInit) {
         alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
         beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
         beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
+        gamma1 <- torch_tensor(theta$gamma1, requires_grad=FALSE)
+        gamma2 <- torch_tensor(theta$gamma2, requires_grad=FALSE)
+        rho1 <- torch_tensor(theta$rho1, requires_grad=FALSE)
+        rho2 <- torch_tensor(theta$rho2, requires_grad=FALSE)
         Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
         Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)

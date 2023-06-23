@@ -173,9 +173,9 @@ for (i in 1:N) {
 # delete switch back #
 ######################
 
-# for (i in 1:N) {
-#   for (t in 2:Nt) {
-#     if (y3D[i,t-1,nC3D] == 1) {y3D[i,t:Nt,nC3D] <- 1; break} } }
+for (i in 1:N) {
+  for (t in 2:Nt) {
+    if (y3D[i,t-1,nC3D] == 1) {y3D[i,t:Nt,nC3D] <- 1; break} } }
 
 # plot persons' drop out occurrence
 # c <- brewer.pal(8, "Dark2")
