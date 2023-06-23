@@ -3,7 +3,7 @@
 Current problems
 - evaluation of the estimated models (latent variables, dynamic regime indicators, parameters)
 - optimization is interrupted by errors which happen at random
-(- calibration of stopping criterion)
+- calibration of stopping criterion
 
 Remedies for p.d. violation
 - Diagonal purtubation: add a small number to diagonal elements whenever it is not p.d.
@@ -11,8 +11,6 @@ Remedies for p.d. violation
 
 Evaluation of the estimated models
 - compare trajectories of estimated S_{it} and parameters against dropout occurences
-... no reliable estimate produced
-Lmd not used
 
 Adding dropout indicator
 - AR(1) model (Kalman filter)
@@ -21,13 +19,8 @@ Adding interaction effects
 - transition probability (Hamilton filter)
 - AR(1) model (Kalman filter)
 
-To do:
-- ask about deleting switching back
-- 
-
 Future:
 - simulation studies - multiple experiments? (not for master thesis)
-
 
 ## file description (interaction in both the kalman filter and hamilton filter + dropout as a covariate in the Kalman filter)
 - sam_preprocessing: loading data & getting factor scores (Bartlett scores) of the data
