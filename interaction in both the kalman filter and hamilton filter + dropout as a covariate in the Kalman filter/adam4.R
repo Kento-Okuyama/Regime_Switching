@@ -3,7 +3,7 @@
 ###################################
 # input: initial parameter values and gradients 
 # output: updated parameter values
-adam4 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8) {
+adam4 <- function(loss, theta, m, v, lr=1e-2, beta1=.9, beta2=.999, epsilon=1e-8) {
   
   # initialize moment estimates
   if (is.null(m) || is.null(v)) {m <- v <- rep(0, length(torch_cat(theta)))}
@@ -13,7 +13,7 @@ adam4 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8
   
   with_no_grad({
     # store gradients
-    grad <- torch_cat(list(theta$a1$grad, theta$a2$grad, theta$B1d$grad, theta$B2d$grad, theta$C1d$grad, theta$C2d$grad, theta$D1$grad, theta$D2$grad, theta$k1$grad, theta$k2$grad, theta$Lmd1v$grad, theta$Lmd2v$grad, theta$Omega1v$grad, theta$Omega2v$grad, theta$A1$grad, theta$A2$grad, theta$alpha1$grad, theta$alpha2$grad, theta$beta1$grad, theta$beta2$grad, theta$gamma1$grad, theta$gamma2$grad, theta$rho1$grad, theta$rho2$grad, theta$Q1d$grad, theta$Q2d$grad, theta$R1d$grad, theta$R2d$grad))
+    grad <- torch_cat(list(theta$a1$grad, theta$a2$grad, theta$B1d$grad, theta$B2d$grad, theta$C1d$grad, theta$C2d$grad, theta$D1$grad, theta$D2$grad, theta$k1$grad, theta$k2$grad, theta$Lmd1v$grad, theta$Lmd2v$grad, theta$Omega1v$grad, theta$Omega2v$grad, theta$M1$grad, theta$M2$grad, theta$alpha1$grad, theta$alpha2$grad, theta$beta1$grad, theta$beta2$grad, theta$gamma1$grad, theta$gamma2$grad, theta$rho1$grad, theta$rho2$grad, theta$Q1d$grad, theta$Q2d$grad, theta$R1d$grad, theta$R2d$grad))
     
     # update moment estimates
     m <- beta1 * m + (1 - beta1) * grad
@@ -55,9 +55,9 @@ adam4 <- function(loss, theta, m, v, lr=1e-3, beta1=.9, beta2=.999, epsilon=1e-8
     index <- index + No1
     theta$Omega2v$sub_(lr * m_hat[(index+1):(index+No1)] / denom[(index+1):(index+No1)])
     index <- index + No1
-    theta$A1$sub_(lr * m_hat[(index+1):(index+No1)] / denom[(index+1):(index+No1)])
+    theta$M1$sub_(lr * m_hat[(index+1):(index+No1)] / denom[(index+1):(index+No1)])
     index <- index + No1
-    theta$A2$sub_(lr * m_hat[(index+1):(index+No1)] / denom[(index+1):(index+No1)])
+    theta$M2$sub_(lr * m_hat[(index+1):(index+No1)] / denom[(index+1):(index+No1)])
     index <- index + No1
     theta$alpha1$sub_(lr * m_hat[(index+1):(index+1)] / denom[(index+1):(index+1)])
     index <- index + 1

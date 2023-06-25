@@ -43,9 +43,9 @@ Omega2[3,6:7] <- Omega2v[6:7]; Omega2[4,8:9] <- Omega2v[8:9]
 Omega2[5,10:11] <- Omega2v[10:11]; Omega2[6,12:14] <- Omega2v[12:14]
 Omega2[7,15:17] <- Omega2v[15:17]
 Omega <- list(Omega1, Omega2)
-A1 <- torch_tensor(A1, requires_grad=TRUE)
-A2 <- torch_tensor(A2, requires_grad=TRUE)
-A <- list(A1, A2)
+M1 <- torch_tensor(M1, requires_grad=TRUE)
+M2 <- torch_tensor(M2, requires_grad=TRUE)
+M <- list(M1, M2)
 alpha1 <- torch_tensor(alpha1, requires_grad=TRUE)
 alpha2 <- torch_tensor(alpha2, requires_grad=TRUE)
 alpha <- list(alpha1, alpha2)
@@ -69,7 +69,7 @@ R1 <- torch_diag(R1d)
 R2 <- torch_diag(R2d)
 R <- list(R1, R2)
 
-theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, gamma1=gamma1, gamma2=gamma2, rho1=rho1, rho2=rho2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
+theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, M1=M1, M2=M2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, gamma1=gamma1, gamma2=gamma2, rho1=rho1, rho2=rho2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
 
 # define variables
 jEta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.2 (LHS)
@@ -102,7 +102,7 @@ jS <- expand.grid(s1=c(1,2), s2=c(1,2))
 
 # step 6
 for (t in 1:Nt) { 
-  cat('   t=', t, '\n')
+  if (t%%10==0) {cat('   t=', t, '\n')}
   # rows that does not have NA values 
   noNaRows[[t]] <- which(rowSums(is.na(y1[,t,])) == 0)
   # rows that have NA values
@@ -138,7 +138,7 @@ for (t in 1:Nt) {
         for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(2e-1 * torch_eye(Nf1))} } }) 
     
     # Eq.5
-    jV[,t,s1,s2,] <- torch_tensor(y1[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Omega[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), A[[s1]]))        
+    jV[,t,s1,s2,] <- torch_tensor(y1[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Omega[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), M[[s1]]))        
     with_no_grad({ 
       jV[,t,s1,s2,][jV[,t,s1,s2,] > ceil] <- ceil
       jV[,t,s1,s2,][jV[,t,s1,s2,] < -ceil] <- -ceil })
@@ -201,8 +201,6 @@ for (t in 1:Nt) {
       jLik[noNaRow,t,s1,s2] <- torch_squeeze((-.5*pi)**(-Nf/2) * torch_det(torch_clone(jP[noNaRow,t,s1,s2,,]))**(-1) * torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), linalg_inv_ex(torch_clone(jP[noNaRow,t,s1,s2,,]))$inverse), torch_clone(jDelta[noNaRow,t,s1,s2,])))) 
       with_no_grad (jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], ceil)) } } 
   
-  torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_matmul(torch_clone(mEta[,t,s2,]), C[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), D[[s1]]) 
-  
   # step 9: transition probability P(s|s',eta_{t-1})  
   if (t == 1) {
     tPr[,t,1] <- torch_sigmoid(alpha[[1]] + torch_tensor(eta2) * gamma[[1]])
@@ -233,8 +231,19 @@ for (t in 1:Nt) {
         div[div < epsilon] <- epsilon
         jPr[,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) })
       
-    } else if (length(naRows[[t-1]]) == N) {jPr[,t,,] <- torch_clone(jPr2[,t-1,,])
-    
+    } else if (length(naRows[[t-1]]) == N) {
+      tPr[,t,] <- tPr[,t-1,]
+      # step 10: Hamilton Filter
+      # joint probability P(s,s'|eta_{t-1})
+      jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
+      jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
+      jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
+      jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) 
+      with_no_grad ({
+        div <- torch_sum(jPr[,t,,], dim=c(2,3))
+        div[div < epsilon] <- epsilon
+        jPr[,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) })
+      
     } else { 
       for (noNaRow in noNaRows[[t-1]]) {
         tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), beta[[1]]) + torch_tensor(eta2[noNaRow]) * gamma[[1]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), rho[[1]]) * torch_tensor(eta2[noNaRow]))
@@ -250,7 +259,17 @@ for (t in 1:Nt) {
           div <- max(torch_sum(jPr[noNaRow,t,,]), epsilon)
           jPr[noNaRow,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) }) } 
       
-      for (naRow in naRows[[t-1]]) {jPr[naRow,t,,] <- torch_clone(jPr2[naRow,t-1,,])} } }
+      for (naRow in naRows[[t-1]]) {
+        tPr[naRow,t,] <- tPr[naRow,t-1,] 
+        # step 10: Hamilton Filter
+        # joint probability P(s,s'|eta_{t-1})
+        jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
+        jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
+        jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
+        jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) 
+        with_no_grad ({
+          div <- max(torch_sum(jPr[naRow,t,,]), epsilon)
+          jPr[naRow,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) }) } } }
   with_no_grad ({
     for (row in 1:N) {
       if (as.numeric(torch_sum(jPr[row,t,,])) < epsilon) {jPr[row,t,,] <- jPr2[row,t-1,,]} } })
@@ -352,11 +371,12 @@ colors <- rainbow(N)
 c <- brewer.pal(8, "Dark2")
 
 i <- 6 # person in {1, ... , N}
-plot(x[i,], lwd=1.5, ylim=c(0,1), type="l")
+plot(x[i,], lwd=1.5, ylim=c(0,1), type='l', xlab='time', ylab='dropout')
 lines(mPr[i,2:(Nt+1)], lwd=1.5, col=c[i%%8]) 
 cat('data', '\n', x[i,], '\n'); cat('prediction (hard clustering)', '\n', as.numeric(mPr[i,2:(Nt+1)] > .5), '\n')
 
 for (t in 1:Nt) {
-cat('\n', 't=', t, '\n')
-print(table(as.numeric((x - mPr[i,2:(Nt+1)] > .5)[,t]))) }
+  cat('\n', 't=', t, '\n')
+  print(table(as.numeric((x - as.numeric(mPr[i,2:(Nt+1)] > .5))[,t]))) }
 
+summary(as.numeric(jDelta))

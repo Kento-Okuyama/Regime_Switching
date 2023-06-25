@@ -17,11 +17,11 @@ library(reticulate)
 # for reproducibility 
 set.seed(42)
 # number of parameter initialization
-nInit <- 15
+nInit <- 30
 # a very small number
-epsilon <- 1e-6
+epsilon <- 1e-3
 # a very large number
-ceil <- 1e6
+ceil <- 1e4
 ###################################
 # s=1: non-drop out state 
 # s=2: drop out state      
@@ -93,7 +93,7 @@ sumLikBest <- 0
 
 for (init in 1:nInit) {
   cat('Initialization step ', init, '\n')
-    
+  
   # store sum-likelihood 
   sumLik <- list()
   # optimization step count
@@ -116,10 +116,12 @@ for (init in 1:nInit) {
   Lmd2v <- runif(No1, min=0, max=1)
   Omega1v <- runif(No1, min=0, max=1)
   Omega2v <- runif(No1, min=0, max=1)
-  A1 <- rnorm(No1)
-  A2 <- rnorm(No1)
-  alpha1 <- rnorm(1)
-  alpha2 <- rnorm(1)
+  M1 <- rnorm(No1)
+  M2 <- rnorm(No1)
+  alpha_1 <- rnorm(1)
+  alpha_2 <- rnorm(1)
+  alpha1 <- min(alpha_1, alpha_2)
+  alpha2 <- max(alpha_1, alpha_2)
   beta1 <- rnorm(Nf1)
   beta2 <- rnorm(Nf1)
   gamma1 <- rnorm(1)
@@ -138,8 +140,8 @@ for (init in 1:nInit) {
   # initialize moment estimates
   m <- v <- NULL
   
-  try ({
-    while (count < 3 && iter < 10) {
+  try (silent = FALSE, {
+    while (count < 3 && iter < 30) {
       cat('   optimization step: ', as.numeric(iter), '\n')
       a1 <- torch_tensor(a1, requires_grad=TRUE)
       a2 <- torch_tensor(a2, requires_grad=TRUE)
@@ -184,9 +186,9 @@ for (init in 1:nInit) {
       Omega2[5,10:11] <- Omega2v[10:11]; Omega2[6,12:14] <- Omega2v[12:14]
       Omega2[7,15:17] <- Omega2v[15:17]
       Omega <- list(Omega1, Omega2)
-      A1 <- torch_tensor(A1, requires_grad=TRUE)
-      A2 <- torch_tensor(A2, requires_grad=TRUE)
-      A <- list(A1, A2)
+      M1 <- torch_tensor(M1, requires_grad=TRUE)
+      M2 <- torch_tensor(M2, requires_grad=TRUE)
+      M <- list(M1, M2)
       alpha1 <- torch_tensor(alpha1, requires_grad=TRUE)
       alpha2 <- torch_tensor(alpha2, requires_grad=TRUE)
       alpha <- list(alpha1, alpha2)
@@ -209,7 +211,7 @@ for (init in 1:nInit) {
       R1 <- torch_diag(R1d)
       R2 <- torch_diag(R2d)
       R <- list(R1, R2)
-      theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, A1=A1, A2=A2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, gamma1=gamma1, gamma2=gamma2, rho1=rho1, rho2=rho2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
+      theta <- list(a1=a1, a2=a2, B1d=B1d, B2d=B2d, C1d=C1d, C2d=C2d, D1=D1, D2=D2, k1=k1, k2=k2, Lmd1v=Lmd1v, Lmd2v=Lmd2v, Omega1v=Omega1v, Omega2v=Omega2v, M1=M1, M2=M2, alpha1=alpha1, alpha2=alpha2, beta1=beta1, beta2=beta2, gamma1=gamma1, gamma2=gamma2, rho1=rho1, rho2=rho2, Q1d=Q1d, Q2d=Q2d, R1d=R1d, R2d=R2d)
       
       # define variables
       jEta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.2 (LHS)
@@ -242,7 +244,7 @@ for (init in 1:nInit) {
       
       # step 6
       for (t in 1:Nt) { 
-        cat('   t=', t, '\n')
+        if (t%%10==0) {cat('   t=', t, '\n')}
         # rows that does not have NA values 
         noNaRows[[t]] <- which(rowSums(is.na(y1[,t,])) == 0)
         # rows that have NA values
@@ -278,7 +280,7 @@ for (init in 1:nInit) {
               for (ind in jPInd) {jP[ind,t,s1,s2,,]$add_(2e-1 * torch_eye(Nf1))} } }) 
           
           # Eq.5
-          jV[,t,s1,s2,] <- torch_tensor(y1[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Omega[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), A[[s1]]))        
+          jV[,t,s1,s2,] <- torch_tensor(y1[,t,]) - (torch_unsqueeze(k[[s1]], dim=1) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Lmd[[s1]]) + torch_matmul(torch_clone(jEta[,t,s1,s2,]), Omega[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), M[[s1]]))        
           with_no_grad({ 
             jV[,t,s1,s2,][jV[,t,s1,s2,] > ceil] <- ceil
             jV[,t,s1,s2,][jV[,t,s1,s2,] < -ceil] <- -ceil })
@@ -341,8 +343,6 @@ for (init in 1:nInit) {
             jLik[noNaRow,t,s1,s2] <- torch_squeeze((-.5*pi)**(-Nf/2) * torch_det(torch_clone(jP[noNaRow,t,s1,s2,,]))**(-1) * torch_exp(-.5*torch_matmul(torch_matmul(torch_clone(jDelta[noNaRow,t,s1,s2,]), linalg_inv_ex(torch_clone(jP[noNaRow,t,s1,s2,,]))$inverse), torch_clone(jDelta[noNaRow,t,s1,s2,])))) 
             with_no_grad (jLik[noNaRow,t,s1,s2] <- min(jLik[noNaRow,t,s1,s2], ceil)) } } 
         
-        torch_matmul(torch_clone(mEta[,t,s2,]), B[[s1]]) + torch_matmul(torch_clone(mEta[,t,s2,]), C[[s1]]) * torch_unsqueeze(torch_tensor(eta2), dim=-1) + torch_outer(torch_tensor(x[,t]), D[[s1]]) 
-        
         # step 9: transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
           tPr[,t,1] <- torch_sigmoid(alpha[[1]] + torch_tensor(eta2) * gamma[[1]])
@@ -373,13 +373,24 @@ for (init in 1:nInit) {
               div[div < epsilon] <- epsilon
               jPr[,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) })
             
-          } else if (length(naRows[[t-1]]) == N) {jPr[,t,,] <- torch_clone(jPr2[,t-1,,])
-          
+          } else if (length(naRows[[t-1]]) == N) {
+            tPr[,t,] <- tPr[,t-1,]
+            # step 10: Hamilton Filter
+            # joint probability P(s,s'|eta_{t-1})
+            jPr[,t,2,2] <- torch_clone(tPr[,t,2]) * torch_clone(mPr[,t])
+            jPr[,t,2,1] <- torch_clone(tPr[,t,1]) * (1-torch_clone(mPr[,t]))
+            jPr[,t,1,2] <- (1-torch_clone(tPr[,t,2])) * torch_clone(mPr[,t])
+            jPr[,t,1,1] <- (1-torch_clone(tPr[,t,1])) * (1-torch_clone(mPr[,t])) 
+            with_no_grad ({
+              div <- torch_sum(jPr[,t,,], dim=c(2,3))
+              div[div < epsilon] <- epsilon
+              jPr[,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) })
+            
           } else { 
             for (noNaRow in noNaRows[[t-1]]) {
               tPr[noNaRow,t,1] <- torch_sigmoid(alpha[[1]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), beta[[1]]) + torch_tensor(eta2[noNaRow]) * gamma[[1]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), rho[[1]]) * torch_tensor(eta2[noNaRow]))
               tPr[noNaRow,t,2] <- torch_sigmoid(alpha[[2]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), beta[[2]]) + torch_tensor(eta2[noNaRow]) * gamma[[2]] + torch_matmul(torch_tensor(eta1[noNaRow,t-1,]), rho[[2]]) * torch_tensor(eta2[noNaRow]))
-             
+              
               # step 10: Hamilton Filter
               # joint probability P(s,s'|eta_{t-1})
               jPr[noNaRow,t,2,2] <- torch_clone(tPr[noNaRow,t,2]) * torch_clone(mPr[noNaRow,t])
@@ -390,11 +401,21 @@ for (init in 1:nInit) {
                 div <- max(torch_sum(jPr[noNaRow,t,,]), epsilon)
                 jPr[noNaRow,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) }) } 
             
-            for (naRow in naRows[[t-1]]) {jPr[naRow,t,,] <- torch_clone(jPr2[naRow,t-1,,])} } }
-          with_no_grad ({
-            for (row in 1:N) {
-              if (as.numeric(torch_sum(jPr[row,t,,])) < epsilon) {jPr[row,t,,] <- jPr2[row,t-1,,]} } })
-          
+            for (naRow in naRows[[t-1]]) {
+              tPr[naRow,t,] <- tPr[naRow,t-1,] 
+              # step 10: Hamilton Filter
+              # joint probability P(s,s'|eta_{t-1})
+              jPr[naRow,t,2,2] <- torch_clone(tPr[naRow,t,2]) * torch_clone(mPr[naRow,t])
+              jPr[naRow,t,2,1] <- torch_clone(tPr[naRow,t,1]) * (1-torch_clone(mPr[naRow,t]))
+              jPr[naRow,t,1,2] <- (1-torch_clone(tPr[naRow,t,2])) * torch_clone(mPr[naRow,t])
+              jPr[naRow,t,1,1] <- (1-torch_clone(tPr[naRow,t,1])) * (1-torch_clone(mPr[naRow,t])) 
+              with_no_grad ({
+                div <- max(torch_sum(jPr[naRow,t,,]), epsilon)
+                jPr[naRow,t,,]$div_(torch_unsqueeze(torch_unsqueeze(div, dim=-1), dim=-1)) }) } } }
+        with_no_grad ({
+          for (row in 1:N) {
+            if (as.numeric(torch_sum(jPr[row,t,,])) < epsilon) {jPr[row,t,,] <- jPr2[row,t-1,,]} } })
+        
         if (length(naRows[[t]]) == N) {jPr2[,t,,] <- torch_clone(jPr[,t,,])
         } else if (length(noNaRows[[t]]) == N) {
           # marginal likelihood function f(eta_{t}|eta_{t-1})
@@ -410,16 +431,16 @@ for (init in 1:nInit) {
             for (row in 1:N) {
               if (as.numeric(torch_sum(jPr2[row,t,,])) < epsilon) {jPr2[row,t,,] <- jPr[row,t,,]} } }) 
           
-          } else {
-            for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- torch_clone(jPr[naRow,t,,])} 
-            for (noNaRow in noNaRows[[t]]) {
-              mLik[noNaRow,t] <- torch_sum(torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]))
-              with_no_grad(mLik[noNaRow,t] <- max(mLik[noNaRow,t], epsilon))
+        } else {
+          for (naRow in naRows[[t]]) {jPr2[naRow,t,,] <- torch_clone(jPr[naRow,t,,])} 
+          for (noNaRow in noNaRows[[t]]) {
+            mLik[noNaRow,t] <- torch_sum(torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]))
+            with_no_grad(mLik[noNaRow,t] <- max(mLik[noNaRow,t], epsilon))
             
-              # (updated) joint probability P(s,s'|eta_{t})
-              jPr2[noNaRow,t,,] <- torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]) / torch_clone(mLik[noNaRow,t]) 
-              with_no_grad ({
-                if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) < epsilon) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} }) } }
+            # (updated) joint probability P(s,s'|eta_{t})
+            jPr2[noNaRow,t,,] <- torch_clone(jLik[noNaRow,t,,]) * torch_clone(jPr[noNaRow,t,,]) / torch_clone(mLik[noNaRow,t]) 
+            with_no_grad ({
+              if (as.numeric(torch_sum(jPr2[noNaRow,t,,])) < epsilon) {jPr2[noNaRow,t,,] <- jPr[noNaRow,t,,]} }) } }
         
         mPr[,t+1] <- torch_sum(torch_clone(jPr2[,t,2,]), dim=2)
         
@@ -501,6 +522,72 @@ for (init in 1:nInit) {
       cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
       plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
       
+      if (sumLikBest * .1 > sumLik[iter][[1]]) {print("   bad initialization: parameters will be re-initialized")
+        with_no_grad({
+          # switch off the gradient tracking
+          a1 <- torch_tensor(theta$a1, requires_grad=FALSE)
+          a2 <- torch_tensor(theta$a2, requires_grad=FALSE)
+          B1d <- torch_tensor(theta$B1d, requires_grad=FALSE)
+          B2d <- torch_tensor(theta$B2d, requires_grad=FALSE)
+          C1d <- torch_tensor(theta$C1d, requires_grad=FALSE)
+          C2d <- torch_tensor(theta$C2d, requires_grad=FALSE)
+          D1 <- torch_tensor(theta$D1, requires_grad=FALSE)
+          D2 <- torch_tensor(theta$D2, requires_grad=FALSE)
+          k1 <- torch_tensor(theta$k1, requires_grad=FALSE)
+          k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
+          Lmd1v <- torch_tensor(theta$Lmd1v, requires_grad=FALSE)
+          Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
+          Omega1v <- torch_tensor(theta$Omega1v, requires_grad=FALSE)
+          Omega2v <- torch_tensor(theta$Omega2v, requires_grad=FALSE)
+          M1 <- torch_tensor(theta$M1, requires_grad=FALSE)
+          M2 <- torch_tensor(theta$M2, requires_grad=FALSE)
+          alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
+          alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
+          beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
+          beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
+          gamma1 <- torch_tensor(theta$gamma1, requires_grad=FALSE)
+          gamma2 <- torch_tensor(theta$gamma2, requires_grad=FALSE)
+          rho1 <- torch_tensor(theta$rho1, requires_grad=FALSE)
+          rho2 <- torch_tensor(theta$rho2, requires_grad=FALSE)
+          Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
+          Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
+          R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
+          R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
+        break }
+      
+      if (count == 2 || iter == 29) {print('   stopping criterion is met')
+        with_no_grad({
+          # switch off the gradient tracking
+          a1 <- torch_tensor(theta$a1, requires_grad=FALSE)
+          a2 <- torch_tensor(theta$a2, requires_grad=FALSE)
+          B1d <- torch_tensor(theta$B1d, requires_grad=FALSE)
+          B2d <- torch_tensor(theta$B2d, requires_grad=FALSE)
+          C1d <- torch_tensor(theta$C1d, requires_grad=FALSE)
+          C2d <- torch_tensor(theta$C2d, requires_grad=FALSE)
+          D1 <- torch_tensor(theta$D1, requires_grad=FALSE)
+          D2 <- torch_tensor(theta$D2, requires_grad=FALSE)
+          k1 <- torch_tensor(theta$k1, requires_grad=FALSE)
+          k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
+          Lmd1v <- torch_tensor(theta$Lmd1v, requires_grad=FALSE)
+          Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
+          Omega1v <- torch_tensor(theta$Omega1v, requires_grad=FALSE)
+          Omega2v <- torch_tensor(theta$Omega2v, requires_grad=FALSE)
+          M1 <- torch_tensor(theta$M1, requires_grad=FALSE)
+          M2 <- torch_tensor(theta$M2, requires_grad=FALSE)
+          alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
+          alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
+          beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
+          beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
+          gamma1 <- torch_tensor(theta$gamma1, requires_grad=FALSE)
+          gamma2 <- torch_tensor(theta$gamma2, requires_grad=FALSE)
+          rho1 <- torch_tensor(theta$rho1, requires_grad=FALSE)
+          rho2 <- torch_tensor(theta$rho2, requires_grad=FALSE)
+          Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
+          Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
+          R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
+          R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
+        break }
+      
       if (sumLikBest < sumLik[iter][[1]]) {with_no_grad({thetaBest <- as.list(theta)})}
       sumLikBest <- max(sumLikBest, sumLik[iter][[1]])
       
@@ -526,8 +613,8 @@ for (init in 1:nInit) {
         Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
         Omega1v <- torch_tensor(theta$Omega1v, requires_grad=FALSE)
         Omega2v <- torch_tensor(theta$Omega2v, requires_grad=FALSE)
-        A1 <- torch_tensor(theta$A1, requires_grad=FALSE)
-        A2 <- torch_tensor(theta$A2, requires_grad=FALSE)
+        M1 <- torch_tensor(theta$M1, requires_grad=FALSE)
+        M2 <- torch_tensor(theta$M2, requires_grad=FALSE)
         alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
         alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
         beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
@@ -541,6 +628,5 @@ for (init in 1:nInit) {
         R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
         R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) })
       
-      if (count==2 || iter == 10) {print('   stopping criterion is met')}
       iter <- iter + 1 } }) # continue to numerical re-optimization 
 } # continue to re-initialization of parameters
