@@ -140,7 +140,7 @@ for (init in 1:nInit) {
   # initialize moment estimates
   m <- v <- NULL
   
-  try (silent = FALSE, {
+  try (silent = TRUE, {
     while (count < 3 && iter < 30) {
       cat('   optimization step: ', as.numeric(iter), '\n')
       a1 <- torch_tensor(a1, requires_grad=TRUE)
