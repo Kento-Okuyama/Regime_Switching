@@ -4,9 +4,9 @@ library(torch)
 library(reticulate)
 
 # number of parameter initialization
-nInit <- 30
+nInit <- 3
 # max number of iterations
-maxIter <- 30
+maxIter <- 300
 # a very small number
 epsilon <- 1e-6
 # a very large number
@@ -309,7 +309,7 @@ for (init in 1:nInit) {
             # Eq.12
             jLik[,t,s1,s2] <- (2*pi)**(-Nf1/2) * jP[,t,s1,s2,,]$clone()$det()**(-1) * 
               (-.5 * jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=2)$matmul(linalg_inv_ex(jP[,t,s1,s2,,]$clone())$inverse)$matmul(jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=-1))$squeeze()$squeeze())$exp()
-            jLik[,t,s1,s2]$clip_(epsilon, ceil) } }
+            jLik[,t,s1,s2]$clip_(0, ceil) } }
         
         # transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
@@ -330,7 +330,6 @@ for (init in 1:nInit) {
         
         # marginal likelihood function f(eta_{t}|eta_{t-1})
         mLik[,t] <- (jLik[,t,,]$clone() * jPr[,t,,]$clone())$sum(dim=c(2,3))
-        mLik[,t]$clip_(epsilon, ceil)
         
         # (updated) joint probability P(s,s'|eta_{t})
         jPr2[,t,,] <- jLik[,t,,]$clone() * jPr[,t,,]$clone() / mLik[,t]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) 
