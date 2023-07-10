@@ -309,7 +309,8 @@ for (init in 1:nInit) {
             # Eq.12
             jLik[,t,s1,s2] <- (2*pi)**(-Nf1/2) * jP[,t,s1,s2,,]$clone()$det()**(-1) * 
               (-.5 * jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=2)$matmul(linalg_inv_ex(jP[,t,s1,s2,,]$clone())$inverse)$matmul(jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=-1))$squeeze()$squeeze())$exp()
-            jLik[,t,s1,s2]$clip_(0, ceil) } }
+            jLik[,t,s1,s2]$clip_(0, ceil)
+            jLik[,t,s1,s2]$retain_grad() } }
         
         # transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
@@ -326,10 +327,11 @@ for (init in 1:nInit) {
         jPr[,t,1,1] <- (1-tPr[,t,1]$clone()) * (1-mPr[,t]$clone()) 
         div <- jPr[,t,,]$sum(dim=c(2,3))
         div$clip_(epsilon, ceil)
-        jPr[,t,,]$div_(div$unsqueeze(dim=-1)$unsqueeze(dim=-1)) 
-        
+        jPr[,t,,]$div_(div$unsqueeze(dim=-1)$unsqueeze(dim=-1))
+
         # marginal likelihood function f(eta_{t}|eta_{t-1})
         mLik[,t] <- (jLik[,t,,]$clone() * jPr[,t,,]$clone())$sum(dim=c(2,3))
+        mLik[,t]$retain_grad()
         
         # (updated) joint probability P(s,s'|eta_{t})
         jPr2[,t,,] <- jLik[,t,,]$clone() * jPr[,t,,]$clone() / mLik[,t]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) 
@@ -388,7 +390,7 @@ for (init in 1:nInit) {
                 mP[row,t+1,s1,,]$add_(2e-1 * torch_eye(Nf1)) } } } }) } 
       
       # aggregated (summed) likelihood at each optimization step
-      loss <- -mLik$clone()$sum()
+      loss <- -mLik[,]$sum()
       sumLik[iter] <- as.numeric(-loss$clone())
       
       # stopping criterion
@@ -399,15 +401,7 @@ for (init in 1:nInit) {
       cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
       plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
       
-      if (sumLikBest * .1 > sumLik[iter][[1]]) {
-        print('   bad initialization: parameters will be re-initialized')
-        
-        # switch off the gradient tracking
-        with_no_grad ({
-          for (var in 1:length(theta)) {theta[[var]]$requires_grad_(requires_grad=FALSE)} })
-        break 
-        
-      } else if (count == 3 || iter == maxIter) {
+      if (count == 3 || iter == maxIter) {
         print('   stopping criterion is met')
         
         # switch off the gradient tracking
@@ -455,35 +449,35 @@ for (init in 1:nInit) {
         index <- end }
       
       # switch off the gradient tracking
-      a1 <- torch_tensor(theta$a1, requires_grad=FALSE)
-      a2 <- torch_tensor(theta$a2, requires_grad=FALSE)
-      B1d <- torch_tensor(theta$B1d, requires_grad=FALSE)
-      B2d <- torch_tensor(theta$B2d, requires_grad=FALSE)
-      C1d <- torch_tensor(theta$C1d, requires_grad=FALSE)
-      C2d <- torch_tensor(theta$C2d, requires_grad=FALSE)
-      D1 <- torch_tensor(theta$D1, requires_grad=FALSE)
-      D2 <- torch_tensor(theta$D2, requires_grad=FALSE)
-      k1 <- torch_tensor(theta$k1, requires_grad=FALSE)
-      k2 <- torch_tensor(theta$k2, requires_grad=FALSE)
-      Lmd1v <- torch_tensor(theta$Lmd1v, requires_grad=FALSE)
-      Lmd2v <- torch_tensor(theta$Lmd2v, requires_grad=FALSE)
-      Omega1v <- torch_tensor(theta$Omega1v, requires_grad=FALSE)
-      Omega2v <- torch_tensor(theta$Omega2v, requires_grad=FALSE)
-      M1 <- torch_tensor(theta$M1, requires_grad=FALSE)
-      M2 <- torch_tensor(theta$M2, requires_grad=FALSE)
-      alpha1 <- torch_tensor(theta$alpha1, requires_grad=FALSE)
-      alpha2 <- torch_tensor(theta$alpha2, requires_grad=FALSE)
-      beta1 <- torch_tensor(theta$beta1, requires_grad=FALSE)
-      beta2 <- torch_tensor(theta$beta2, requires_grad=FALSE)
-      gamma1 <- torch_tensor(theta$gamma1, requires_grad=FALSE)
-      gamma2 <- torch_tensor(theta$gamma2, requires_grad=FALSE)
-      rho1 <- torch_tensor(theta$rho1, requires_grad=FALSE)
-      rho2 <- torch_tensor(theta$rho2, requires_grad=FALSE)
-      tau1 <- torch_tensor(theta$tau1, requires_grad=FALSE)
-      tau2 <- torch_tensor(theta$tau2, requires_grad=FALSE)
-      Q1d <- torch_tensor(theta$Q1d, requires_grad=FALSE)
-      Q2d <- torch_tensor(theta$Q2d, requires_grad=FALSE)
-      R1d <- torch_tensor(theta$R1d, requires_grad=FALSE)
-      R2d <- torch_tensor(theta$R2d, requires_grad=FALSE) 
+      a1 <- torch_tensor(theta$a1)
+      a2 <- torch_tensor(theta$a2)
+      B1d <- torch_tensor(theta$B1d)
+      B2d <- torch_tensor(theta$B2d)
+      C1d <- torch_tensor(theta$C1d)
+      C2d <- torch_tensor(theta$C2d)
+      D1 <- torch_tensor(theta$D1)
+      D2 <- torch_tensor(theta$D2)
+      k1 <- torch_tensor(theta$k1)
+      k2 <- torch_tensor(theta$k2)
+      Lmd1v <- torch_tensor(theta$Lmd1v)
+      Lmd2v <- torch_tensor(theta$Lmd2v)
+      Omega1v <- torch_tensor(theta$Omega1v)
+      Omega2v <- torch_tensor(theta$Omega2v)
+      M1 <- torch_tensor(theta$M1)
+      M2 <- torch_tensor(theta$M2)
+      alpha1 <- torch_tensor(theta$alpha1)
+      alpha2 <- torch_tensor(theta$alpha2)
+      beta1 <- torch_tensor(theta$beta1)
+      beta2 <- torch_tensor(theta$beta2)
+      gamma1 <- torch_tensor(theta$gamma1)
+      gamma2 <- torch_tensor(theta$gamma2)
+      rho1 <- torch_tensor(theta$rho1)
+      rho2 <- torch_tensor(theta$rho2)
+      tau1 <- torch_tensor(theta$tau1)
+      tau2 <- torch_tensor(theta$tau2)
+      Q1d <- torch_tensor(theta$Q1d)
+      Q2d <- torch_tensor(theta$Q2d)
+      R1d <- torch_tensor(theta$R1d)
+      R2d <- torch_tensor(theta$R2d) 
       
       iter <- iter + 1 } }) }
