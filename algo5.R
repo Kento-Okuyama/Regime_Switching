@@ -4,13 +4,13 @@ library(torch)
 library(reticulate)
 
 # number of parameter initialization
-nInit <- 3
+nInit <- 10
 # max number of iterations
-maxIter <- 300
+maxIter <- 1000
 # a very small number
-epsilon <- 1e-6
+epsilon <- 1e-12
 # a very large number
-ceil <- 1e6
+ceil <- 1e12
 # hyperparameters for adam optimization
 lr <- 1e-3
 betas <- c(.9, .999) 
@@ -62,7 +62,7 @@ eta2 <- torch_tensor(eta2)
 # algorithm #
 #############
 # for reproducibility 
-set.seed(42)
+set.seed(2)
 
 sumLikBest <- 0
 
@@ -112,8 +112,8 @@ for (init in 1:nInit) {
   R1d <- torch_tensor(rchisq(No1, df=1))
   R2d <- torch_tensor(rchisq(No1, df=1))
   
-  # try (silent = FALSE, {
   with_detect_anomaly ({
+  # try (silent = FALSE, {
     while (count <= 3 && iter <= maxIter) {
       cat('   optimization step: ', as.numeric(iter), '\n')
       
@@ -240,7 +240,7 @@ for (init in 1:nInit) {
             eta2$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) + 
             x[,t]$clone()$outer(D[[s1]])$unsqueeze(dim=2) 
           jEta[,t,s1,,]$clip_(-ceil, ceil)
-
+          
           # Eq.3
           jDelta[,t,s1,,] <- eta1[,t,]$clone()$unsqueeze(dim=2) - jEta[,t,s1,,]$clone() 
           jDelta[,t,s1,,]$clip_(-ceil, ceil)
@@ -258,7 +258,7 @@ for (init in 1:nInit) {
                 jP[row,t,s1,s2,,] <- jPEig[[2]]$real[row,s2,,]$matmul(jPEig[[1]]$real[row,s2,]$diag())$matmul(jPEig[[2]]$real[row,s2,,]$transpose(1, 2))
                 while (as.numeric(jP[row,t,s1,s2,,]$det()) < epsilon) {
                   jP[row,t,s1,s2,,]$add_(2e-1 * torch_eye(Nf1)) } } } }) 
-        
+          
           # Eq.5
           jV[,t,s1,,] <- y1[,t,]$clone()$unsqueeze(dim=2) -
             (k[[s1]]$unsqueeze(dim=1)$unsqueeze(dim=1) + 
@@ -281,7 +281,7 @@ for (init in 1:nInit) {
                 jF[row,t,s1,s2,,] <- jFEig[[2]]$real[row,s2,,]$matmul(jFEig[[1]]$real[row,s2,]$diag())$matmul(jFEig[[2]]$real[row,s2,,]$transpose(1, 2))
                 while (as.numeric(jF[row,t,s1,s2,,]$det()) < epsilon) {
                   jF[row,t,s1,s2,,]$add_(5e-1 * torch_eye(No1)) } } } }) 
-        
+          
           # kalman gain function
           KG[,t,s1,,,] <- jP[,t,s1,,,]$clone()$matmul(Lmd[[s1]]$transpose(1, 2))$matmul(linalg_inv_ex(jF[,t,s1,,,]$clone())$inverse)
           KG[,t,s1,,,]$clip_(-ceil, ceil)
@@ -307,10 +307,9 @@ for (init in 1:nInit) {
             
             # joint likelihood f(eta_{t}|s,s',eta_{t-1})
             # Eq.12
-            jLik[,t,s1,s2] <- (2*pi)**(-Nf1/2) * jP[,t,s1,s2,,]$clone()$det()**(-1) * 
+            jLik[,t,s1,s2] <- epsilon + (2*pi)**(-Nf1/2) * jP[,t,s1,s2,,]$clone()$det()**(-1) * 
               (-.5 * jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=2)$matmul(linalg_inv_ex(jP[,t,s1,s2,,]$clone())$inverse)$matmul(jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=-1))$squeeze()$squeeze())$exp()
-            jLik[,t,s1,s2]$clip_(0, ceil)
-            jLik[,t,s1,s2]$retain_grad() } }
+            jLik[,t,s1,s2]$clip_(0, ceil) } }
         
         # transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
@@ -328,17 +327,17 @@ for (init in 1:nInit) {
         div <- jPr[,t,,]$sum(dim=c(2,3))
         div$clip_(epsilon, ceil)
         jPr[,t,,]$div_(div$unsqueeze(dim=-1)$unsqueeze(dim=-1))
-
+        
         # marginal likelihood function f(eta_{t}|eta_{t-1})
         mLik[,t] <- (jLik[,t,,]$clone() * jPr[,t,,]$clone())$sum(dim=c(2,3))
-        mLik[,t]$retain_grad()
+        mLik[,t]$clip_(0, ceil)
         
         # (updated) joint probability P(s,s'|eta_{t})
         jPr2[,t,,] <- jLik[,t,,]$clone() * jPr[,t,,]$clone() / mLik[,t]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) 
         div <- jPr2[,t,,]$sum(dim=c(2,3))
         div$clip_(epsilon, ceil)
         jPr2[,t,,]$div_(div$unsqueeze(dim=-1)$unsqueeze(dim=-1))  
-      
+        
         # marginal probability P(s|eta_{t})
         mPr[,t+1] <- jPr2[,t,2,]$clone()$sum(dim=2)
         
@@ -363,10 +362,10 @@ for (init in 1:nInit) {
         subEtaSq[,t,,,,] <- subEta[,t,,,]$clone()$unsqueeze(dim=-1)$matmul(subEta[,t,,,]$clone()$unsqueeze(dim=-2))
         subEtaSq[,t,,,,]$clip_(-ceil, ceil)
         with_no_grad(subEtaSq[,t,,,,] <- (subEtaSq[,t,,,,] + subEtaSq[,t,,,,]$transpose(4, 5)) / 2)
-          
+        
         # store the pair (s,s') as data frame 
         jS <- expand.grid(s1=c(1,2), s2=c(1,2))
-          
+        
         with_no_grad ({
           for (js in 1:nrow(jS)) {
             s1 <- jS$s1[js]; s2 <- jS$s2[js]
@@ -391,7 +390,7 @@ for (init in 1:nInit) {
       
       # aggregated (summed) likelihood at each optimization step
       loss <- -mLik[,]$sum()
-      sumLik[iter] <- as.numeric(-loss$clone())
+      sumLik[iter] <- as.numeric(-loss)
       
       # stopping criterion
       crit <- ifelse(abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsilon, (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / abs(sumLik[iter][[1]] - sumLik[1][[1]]), 0)
