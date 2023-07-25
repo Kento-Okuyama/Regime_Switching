@@ -5,7 +5,7 @@ library(lavaan)
 # install.packages("abind")
 library(abind)
 
-setwd("C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/WS23/Regime-Switching")
+# setwd("C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/WS23/Regime-Switching")
 
 ###############
 # import data #
@@ -199,17 +199,30 @@ fit_cfas <- list()
 eta <- list()
 
 # apply CFA to intra- and inter-individual variables in order to obtain factors  
-fit_cfas_w <- cfa(model_cfa_w, data=y2D_w[,3:ncol(y2D_w)])
+fit_cfas_w <- cfa(model_cfa_w, data=y2D_w[,3:ncol(y2D_w)], meanstructure=TRUE)
 eta2D_w <- lavPredict(fit_cfas_w, method='Bartlett')
 eta2D_w <- data.frame(eta2D_w)
 colnames(eta2D_w) <- c('subImp', 'cost', 'understand', 'stress', 'AtF', 'PAS', 'NAS')
+icept_w <- parameterEstimates(fit_cfas_w)[63:79,4]
+coef_w <- parameterestimates(fit_cfas_w)[1:17,4]
+cov_w <- fitted(fit_cfas_w)$cov
+res_w <- residuals(fit_cfas_w)$cov
+y2D_w_pred <- lavPredict(fit_cfas_w, method='Bartlett', type='ov')
+y2D_w_pred <- data.frame(y2D_w_pred)
 
-fit_cfas_b <- cfa(model_cfa_b, data=y2D_b_new[,3:ncol(y2D_b_new)])
+fit_cfas_b <- cfa(model_cfa_b, data=y2D_b_new[,3:ncol(y2D_b_new)], meanstructure=TRUE)
 eta2D_b <- lavPredict(fit_cfas_b, method='Bartlett')
 eta2D_b <- data.frame(eta2D_b)
 colnames(eta2D_b) <- c('IQ')
+icept_b <- parameterEstimates(fit_cfas_b)[8:10,4]
+coef_b <- parameterestimates(fit_cfas_b)[1:3,4]
+cov_b <- fitted(fit_cfas_b)$cov
+res_b <- residuals(fit_cfas_b)$cov
+y2D_b_pred <- lavPredict(fit_cfas_b, method='Bartlett', type='ov')
+y2D_b_pred <- data.frame(y2D_b_pred)
 
 eta2D <- cbind(ID=y2D_w$ID, day=y2D_w$day, eta2D_w, eta2D_b)
+y2D_pred <- cbind(ID=y2D_w$ID, day=y2D_w$day, y2D_w_pred, y2D_b_pred)
 
 #########################################
 # reshape the longitudinal data into 3D #
@@ -225,6 +238,17 @@ for (i in 1:nrow(x_new)) {
 
 eta3D_w <- eta3D[,,1:ncol(eta2D_w)] # take only intra-individual factors
 eta3D_b <- eta3D[,1,(ncol(eta2D_w)+1):(ncol(eta2D_w)+ncol(eta2D_b))] # take only inter-individual factors
+
+# crate an array of NAs 
+y3D_pred <- array(NA, c(nrow(x_new), ncol(x_new), ncol(y2D_w_pred)+ncol(y2D_b_pred)))
+# fill the entries of (eta3D) based on (eta2D) 
+for (i in 1:nrow(x_new)) {
+  # take ith person's data from eta2D
+  y2D_pred_i <- y2D_pred[y2D_pred$ID==i,]
+  for (t in 1:ncol(x_new)) {y3D_pred[i,t,] <- colMeans(y2D_pred_i[y2D_pred_i$day==t,3:dim(y2D_pred)[2]]) } } 
+
+y3D_w_pred <- y3D_pred[,,1:ncol(y2D_w_pred)] # take only intra-individual factors
+y3D_b_pred <- y3D_pred[,1,(ncol(y2D_w_pred)+1):(ncol(y2D_w_pred)+ncol(y2D_b_pred))] # take only inter-individual factors
 
 ######################################
 # add interaction of latent factors  #
@@ -247,7 +271,9 @@ Nf12 <- dim(eta3D_wb)[3]
 # save data as a list #
 #######################
 df <- list(eta3D=eta3D, eta3D1=eta3D_w, eta3D2=eta3D_b, eta3D12=eta3D_wb, 
-           y3D=y3D, y3D1=y3D_w, y3D2=y3D_b, x=x_new, N=nrow(x_new), Nt=ncol(x_new),
+           y3D=y3D_pred, y3D1=y3D_w, y3D2=y3D_b, 
+           icept1=icept_w, icept2=icept_b, coef1=coef_w, coef2=coef_b, 
+           cov1=cov_w, cov2=cov_b, res1=res_w, res2=res_b,
+           x=x_new, N=nrow(x_new), Nt=ncol(x_new),
            Nf1=ncol(eta2D_w), Nf2=ncol(eta2D_b), No1=length(cols_w), No2=length(cols_b))
-
 

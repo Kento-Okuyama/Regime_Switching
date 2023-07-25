@@ -4,13 +4,14 @@ library(torch)
 library(reticulate)
 
 # number of parameter initialization
-nInit <- 10
+nInit <- 5
 # max number of iterations
-maxIter <- 1000
-# a very small number
-epsilon <- 1e-12
-# a very large number
-ceil <- 1e12
+maxIter <- 500
+# some small number
+sEpsilon <- 1e-6
+lEpsilon <- 1e-1
+# some large number
+ceil <- 1e6
 # hyperparameters for adam optimization
 lr <- 1e-3
 betas <- c(.9, .999) 
@@ -36,21 +37,16 @@ Nf2 <- df$Nf2
 y1Mean <- colMeans(y1[,1,], na.rm=TRUE)
 y1Sd <- sqrt(diag(var(y1[,1,], na.rm=TRUE)))
 for (o in 1:No1) {
-  y1[,,o] <- ifelse(y1Sd[o]==0, y1[,,o] - y1Mean[o], (y1[,,o] - y1Mean[o]) / y1Sd[o]) }
-
-# y2Mean <- colMeans(y2[,1,], na.rm=TRUE)
-# y2Sd <- sqrt(diag(var(y2[,1,], na.rm=TRUE)))
-# for (o in 1:No2) {
-#   y2[,,o] <- ifelse(y2Sd[o]==0, y2[,,o] - y2Mean[o], (y2[,,o] - y2Mean[o]) / y2Sd[o]) }
+  ifelse(y1Sd[o]==0, y1[,,o] <- y1[,,o] - y1Mean[o], y1[,,o] <- (y1[,,o] - y1Mean[o]) / y1Sd[o]) }
 
 eta1Mean <- colMeans(eta1[,1,], na.rm=TRUE)
 eta1Sd <- sqrt(diag(var(eta1[,1,], na.rm=TRUE)))
 for (f in 1:Nf1) {
-  eta1[,,f] <- ifelse(eta1Sd[f]==0, eta1[,,f] - eta1Mean[f], (eta1[,,f] - eta1Mean[f]) / eta1Sd[f]) }
+  ifelse(eta1Sd[f]==0, eta1[,,f] <- eta1[,,f] - eta1Mean[f], eta1[,,f] <- (eta1[,,f] - eta1Mean[f]) / eta1Sd[f]) }
 
 eta2Mean <- mean(eta2, na.rm=TRUE)
 eta2Sd <- sd(eta2, na.rm=TRUE)
-eta2 <- ifelse(eta2Sd==0, eta2 - eta2Mean, (eta2 - eta2Mean) / eta2Sd)
+ifelse(eta2Sd==0, eta2 <- eta2 - eta2Mean, eta2 <- (eta2 - eta2Mean) / eta2Sd)
 
 y1 <- torch_tensor(y1)
 x <- torch_tensor(x)
@@ -81,24 +77,22 @@ for (init in 1:nInit) {
   # initialize parameters
   a1 <- torch_tensor(rnorm(Nf1))
   a2 <- torch_tensor(rnorm(Nf1))
-  B1d <- torch_tensor(runif(Nf1, min=0, max=1))
-  B2d <- torch_tensor(runif(Nf1, min=0, max=1))
-  C1d <- torch_tensor(runif(Nf1, min=0, max=1))
-  C2d <- torch_tensor(runif(Nf1, min=0, max=1))
+  B1d <- torch_tensor(runif(Nf1, min=0, max=.9))
+  B2d <- torch_tensor(runif(Nf1, min=0, max=.9))
+  C1d <- torch_tensor(runif(Nf1, min=0, max=.3))
+  C2d <- torch_tensor(runif(Nf1, min=0, max=.3))
   D1 <- torch_tensor(rnorm(Nf1))
   D2 <- torch_tensor(rnorm(Nf1))
   k1 <- torch_tensor(rnorm(No1))
   k2 <- torch_tensor(rnorm(No1))
-  Lmd1v <- torch_tensor(runif(No1, min=0, max=1))
-  Lmd2v <- torch_tensor(runif(No1, min=0, max=1))
-  Omega1v <- torch_tensor(runif(No1, min=0, max=1))
-  Omega2v <- torch_tensor(runif(No1, min=0, max=1))
+  Lmd1v <- torch_tensor(runif(No1, min=0, max=.9))
+  Lmd2v <- torch_tensor(runif(No1, min=0, max=.9))
+  Omega1v <- torch_tensor(runif(No1, min=0, max=.3))
+  Omega2v <- torch_tensor(runif(No1, min=0, max=.3))
   M1 <- torch_tensor(rnorm(No1))
   M2 <- torch_tensor(rnorm(No1))
-  alpha_1 <- torch_tensor(rnorm(1))
-  alpha_2 <- torch_tensor(rnorm(1))
-  alpha1 <- min(alpha_1, alpha_2)$unsqueeze(dim=1)
-  alpha2 <- max(alpha_1, alpha_2)$unsqueeze(dim=1)
+  alpha1 <- torch_tensor(-abs(rnorm(1)))
+  alpha2 <- torch_tensor(abs(rnorm(1)))
   beta1 <- torch_tensor(rnorm(Nf1))
   beta2 <- torch_tensor(rnorm(Nf1))
   gamma1 <- torch_tensor(rnorm(1))
@@ -122,13 +116,13 @@ for (init in 1:nInit) {
       a <- list(a1, a2)
       B1d$requires_grad_()
       B2d$requires_grad_()
-      B1 <- torch_diag(B1d)
-      B2 <- torch_diag(B2d)
+      B1 <- B1d$diag()
+      B2 <- B2d$diag()
       B <- list(B1, B2)
       C1d$requires_grad_()
       C2d$requires_grad_()
-      C1 <- torch_diag(C1d)
-      C2 <- torch_diag(C2d)
+      C1 <- C1d$diag()
+      C2 <- C2d$diag()
       C <- list(C1, C2)
       D1$requires_grad_()
       D2$requires_grad_()
@@ -178,11 +172,17 @@ for (init in 1:nInit) {
       tau1$requires_grad_()
       tau2$requires_grad_()
       tau <- list(tau1, tau2)
+      with_no_grad({
+        Q1d$clip_(sEpsilon, ceil)
+        Q2d$clip_(sEpsilon, ceil) }) 
       Q1d$requires_grad_()
       Q2d$requires_grad_()
       Q1 <- Q1d$diag()
       Q2 <- Q2d$diag()
       Q <- list(Q1, Q2)
+      with_no_grad({ 
+        R1d$clip_(sEpsilon, ceil)
+        R2d$clip_(sEpsilon, ceil) })
       R1d$requires_grad_()
       R2d$requires_grad_()
       R1 <- R1d$diag()
@@ -219,18 +219,17 @@ for (init in 1:nInit) {
       
       # initialize latent variables
       mEta[,1,,] <- 0
-      mP[,1,,,] <- 0; mP[,1,,,]$add_(1e2 * torch_eye(Nf1)) 
+      mP[,1,,,] <- 0; mP[,1,,,]$add_(torch_eye(Nf1)) 
       
       # initialize P(s'|eta_0)
-      mPr[,1] <- epsilon 
+      mPr[,1] <- sEpsilon 
       
       #######################
       # extended Kim filter #
       #######################
       for (t in 1:Nt) { 
         if (t%%10==0) {cat('   t=', t, '\n')}
-        # cat('      t=', t, '\n') 
-        
+
         # Kalman Filter
         for (s1 in 1:2) {
           # Eq.2
@@ -239,25 +238,26 @@ for (init in 1:nInit) {
             mEta[,t,,]$clone()$matmul(C[[s1]]) * 
             eta2$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) + 
             x[,t]$clone()$outer(D[[s1]])$unsqueeze(dim=2) 
-          jEta[,t,s1,,]$clip_(-ceil, ceil)
+          with_no_grad(jEta[,t,s1,,]$clip_(-ceil, ceil))
           
           # Eq.3
           jDelta[,t,s1,,] <- eta1[,t,]$clone()$unsqueeze(dim=2) - jEta[,t,s1,,]$clone() 
-          jDelta[,t,s1,,]$clip_(-ceil, ceil)
+          with_no_grad(jDelta[,t,s1,,]$clip_(-ceil, ceil))
           
           # Eq.4
-          jP[,t,s1,,,] <- mP[,t,,,]$clone()$matmul(B[[s1]])$matmul(B[[s1]]$transpose(1, 2)) + 
+          jP[,t,s1,,,] <- B[[s1]]$matmul(mP[,t,,,]$clone())$matmul(B[[s1]]$transpose(1, 2)) + 
+            C[[s1]]$matmul(mP[,t,,,]$clone())$matmul(C[[s1]]$transpose(1, 2)) * eta2$clone()$square()$unsqueeze(dim=-1)$unsqueeze(dim=-1)$unsqueeze(dim=-1) + 
             Q[[s1]]$unsqueeze(dim=1)$unsqueeze(dim=1) 
           with_no_grad ({ 
             jP[,t,s1,,,] <- (jP[,t,s1,,,] + jP[,t,s1,,,]$transpose(3, 4)) / 2
             jP[,t,s1,,,]$clip_(-ceil, ceil)
             jPEig <- linalg_eigh(jP[,t,s1,,,])
-            jPEig[[1]]$real$clip_(epsilon, ceil)
+            jPEig[[1]]$real$clip_(sEpsilon, ceil)
             for (row in 1:N) {
               for (s2 in 1:2) {
                 jP[row,t,s1,s2,,] <- jPEig[[2]]$real[row,s2,,]$matmul(jPEig[[1]]$real[row,s2,]$diag())$matmul(jPEig[[2]]$real[row,s2,,]$transpose(1, 2))
-                while (as.numeric(jP[row,t,s1,s2,,]$det()) < epsilon) {
-                  jP[row,t,s1,s2,,]$add_(2e-1 * torch_eye(Nf1)) } } } }) 
+                while (as.numeric(jP[row,t,s1,s2,,]$det()) < 0) {
+                  jP[row,t,s1,s2,,]$add_(lEpsilon * torch_eye(Nf1)) } } } }) 
           
           # Eq.5
           jV[,t,s1,,] <- y1[,t,]$clone()$unsqueeze(dim=2) -
@@ -266,50 +266,51 @@ for (init in 1:nInit) {
                jEta[,t,s1,,]$clone()$matmul(Omega[[s1]]$transpose(1, 2)) * 
                eta2$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) + 
                x[,t]$clone()$outer(M[[s1]])$unsqueeze(dim=2))        
-          jV[,t,s1,,]$clip_(-ceil, ceil)
+          with_no_grad(jV[,t,s1,,]$clip_(-ceil, ceil))
           
           # Eq.6
           jF[,t,s1,,,] <- Lmd[[s1]]$matmul(jP[,t,s1,,,]$clone())$matmul(Lmd[[s1]]$transpose(1, 2)) + 
+            Omega[[s1]]$matmul(jP[,t,s1,,,]$clone())$matmul(Omega[[s1]]$transpose(1, 2)) * eta2$clone()$square()$unsqueeze(dim=-1)$unsqueeze(dim=-1)$unsqueeze(dim=-1) +
             R[[s1]]$unsqueeze(dim=1)$unsqueeze(dim=1) 
-          jF[,t,s1,,,]$clip_(-ceil, ceil)
           with_no_grad ({
+            jF[,t,s1,,,]$clip_(-ceil, ceil)
             jF[,t,s1,,,] <- (jF[,t,s1,,,] + jF[,t,s1,,,]$transpose(3, 4)) / 2
             jFEig <- linalg_eigh(jF[,t,s1,,,])
-            jFEig[[1]]$real$clip_(epsilon, ceil)
+            jFEig[[1]]$real$clip_(sEpsilon, ceil)
             for (row in 1:N) {
               for (s2 in 1:2) {
                 jF[row,t,s1,s2,,] <- jFEig[[2]]$real[row,s2,,]$matmul(jFEig[[1]]$real[row,s2,]$diag())$matmul(jFEig[[2]]$real[row,s2,,]$transpose(1, 2))
-                while (as.numeric(jF[row,t,s1,s2,,]$det()) < epsilon) {
-                  jF[row,t,s1,s2,,]$add_(5e-1 * torch_eye(No1)) } } } }) 
+                while (as.numeric(jF[row,t,s1,s2,,]$det()) < 0) {
+                  jF[row,t,s1,s2,,]$add_(lEpsilon * torch_eye(No1)) } } } }) 
           
           # kalman gain function
           KG[,t,s1,,,] <- jP[,t,s1,,,]$clone()$matmul(Lmd[[s1]]$transpose(1, 2))$matmul(linalg_inv_ex(jF[,t,s1,,,]$clone())$inverse)
-          KG[,t,s1,,,]$clip_(-ceil, ceil)
+          with_no_grad(KG[,t,s1,,,]$clip_(-ceil, ceil))
           
           for (s2 in 1:2) {
             # Eq.7
             jEta2[,t,s1,s2,] <- jEta[,t,s1,s2,]$clone() + KG[,t,s1,s2,,]$clone()$matmul(jV[,t,s1,s2,]$clone()$unsqueeze(dim=-1))$squeeze()
-            jEta2[,t,s1,s2,]$clip_(-ceil, ceil)
+            with_no_grad(jEta2[,t,s1,s2,]$clip_(-ceil, ceil))
             I_KGLmd[,t,s1,s2,,] <- torch_eye(Nf1)$unsqueeze(dim=1) - KG[,t,s1,s2,,]$clone()$matmul(Lmd[[s1]])
-            I_KGLmd[,t,s1,s2,,]$clip_(-ceil, ceil)
+            with_no_grad(I_KGLmd[,t,s1,s2,,]$clip_(-ceil, ceil))
             
             # Eq.9
             jP2[,t,s1,s2,,] <- I_KGLmd[,t,s1,s2,,]$clone()$matmul(jP[,t,s1,s2,,]$clone())$matmul(I_KGLmd[,t,s1,s2,,]$clone()$transpose(2, 3)) + 
               KG[,t,s1,s2,,]$clone()$matmul(R[[s1]])$matmul(KG[,t,s1,s2,,]$clone()$transpose(2, 3))
-            jP2[,t,s1,s2,,]$clip_(-ceil, ceil)
+            with_no_grad(jP2[,t,s1,s2,,]$clip_(-ceil, ceil))
             
             with_no_grad ({
               jP2Eig <- linalg_eigh(jP2[,t,s1,s2,,]) 
-              jP2Eig[[1]]$real$clip_(epsilon, ceil)
+              jP2Eig[[1]]$real$clip_(sEpsilon, ceil)
               for (row in 1:N) {
                 jP2[row,t,s1,s2,,] <- jP2Eig[[2]]$real[s2,,]$matmul(jP2Eig[[1]]$real[s2,]$diag())$matmul(jP2Eig[[2]]$real[s2,,]$transpose(1, 2)) 
-                while (as.numeric(jP2[row,t,s1,s2,,]$det()) < epsilon) {jP2[row,t,s1,s2,,]$add_(2e-1 * torch_eye(Nf1))} } }) 
+                while (as.numeric(jP2[row,t,s1,s2,,]$det()) < 0) {jP2[row,t,s1,s2,,]$add_(sEpsilon * torch_eye(Nf1))} } }) 
             
             # joint likelihood f(eta_{t}|s,s',eta_{t-1})
             # Eq.12
-            jLik[,t,s1,s2] <- epsilon + (2*pi)**(-Nf1/2) * jP[,t,s1,s2,,]$clone()$det()**(-1) * 
+            jLik[,t,s1,s2] <- (2*pi)**(-Nf1/2) * jP[,t,s1,s2,,]$clone()$det()**(-1) * 
               (-.5 * jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=2)$matmul(linalg_inv_ex(jP[,t,s1,s2,,]$clone())$inverse)$matmul(jDelta[,t,s1,s2,]$clone()$unsqueeze(dim=-1))$squeeze()$squeeze())$exp()
-            jLik[,t,s1,s2]$clip_(0, ceil) } }
+            with_no_grad(jLik[,t,s1,s2]$clip_(min=sEpsilon)) } }
         
         # transition probability P(s|s',eta_{t-1})  
         if (t == 1) {
@@ -318,24 +319,25 @@ for (init in 1:nInit) {
           
         } else {
           tPr[,t,1] <- (alpha[[1]] + eta1[,t-1,]$clone()$matmul(beta[[1]]) + gamma[[1]] * eta2$clone() + eta1[,t-1,]$clone()$matmul(rho[[1]]) * eta2$clone() + tau[[1]] * x[,t-1]$clone())$sigmoid() 
-          tPr[,t,2] <- (alpha[[2]] + eta1[,t-1,]$clone()$matmul(beta[[2]]) + gamma[[2]] * eta2$clone() + eta1[,t-1,]$clone()$matmul(rho[[2]]) * eta2$clone() + tau[[2]] * x[,t-1]$clone())$sigmoid() }
+          tPr[,t,2] <- (alpha[[2]] + eta1[,t-1,]$clone()$matmul(beta[[2]]) + gamma[[2]] * eta2$clone() + eta1[,t-1,]$clone()$matmul(rho[[2]]) * eta2$clone() + tau[[2]] * x[,t-1]$clone())$sigmoid() 
+        }
         
         jPr[,t,2,2] <- tPr[,t,2]$clone() * mPr[,t]$clone()
         jPr[,t,2,1] <- tPr[,t,1]$clone() * (1-mPr[,t]$clone())
         jPr[,t,1,2] <- (1-tPr[,t,2]$clone()) * mPr[,t]$clone()
         jPr[,t,1,1] <- (1-tPr[,t,1]$clone()) * (1-mPr[,t]$clone()) 
         div <- jPr[,t,,]$sum(dim=c(2,3))
-        div$clip_(epsilon, ceil)
+        with_no_grad(div$clip_(sEpsilon, ceil))
         jPr[,t,,]$div_(div$unsqueeze(dim=-1)$unsqueeze(dim=-1))
         
         # marginal likelihood function f(eta_{t}|eta_{t-1})
         mLik[,t] <- (jLik[,t,,]$clone() * jPr[,t,,]$clone())$sum(dim=c(2,3))
-        mLik[,t]$clip_(0, ceil)
+        with_no_grad(mLik[,t]$clip_(min=sEpsilon))
         
         # (updated) joint probability P(s,s'|eta_{t})
         jPr2[,t,,] <- jLik[,t,,]$clone() * jPr[,t,,]$clone() / mLik[,t]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) 
         div <- jPr2[,t,,]$sum(dim=c(2,3))
-        div$clip_(epsilon, ceil)
+        with_no_grad(div$clip_(sEpsilon, ceil))
         jPr2[,t,,]$div_(div$unsqueeze(dim=-1)$unsqueeze(dim=-1))  
         
         # marginal probability P(s|eta_{t})
@@ -344,56 +346,44 @@ for (init in 1:nInit) {
         # step 11: collapsing procedure
         for (s2 in 1:2) { 
           denom1[,t] <- 1 - mPr[,t+1]$clone()
-          denom1[,t]$clip_(epsilon, ceil)
+          with_no_grad(denom1[,t]$clip_(sEpsilon, ceil))
           W[,t,1,s2] <- jPr2[,t,1,s2]$clone() / denom1[,t]$clone()
           
           denom2[,t] <- mPr[,t+1]$clone()
-          denom2[,t]$clip_(epsilon, ceil)
+          with_no_grad(denom2[,t]$clip_(sEpsilon, ceil))
           W[,t,2,s2] <- jPr2[,t,2,s2]$clone() / denom2[,t]$clone()
           
-          W[,t,,s2]$clip_(epsilon, 1-epsilon) }
+          with_no_grad(W[,t,,s2]$clip_(sEpsilon, 1-sEpsilon)) }
         
         mEta[,t+1,,] <- (W[,t,,]$clone()$unsqueeze(dim=-1) * jEta2[,t,,,]$clone())$sum(dim=3)
-        mEta[,t+1,,]$clip_(-ceil, ceil)
+        with_no_grad(mEta[,t+1,,]$clip_(-ceil, ceil))
         
         subEta[,t,,,] <- mEta[,t+1,,]$clone()$unsqueeze(dim=-2) - jEta2[,t,,,]$clone()
-        subEta[,t,,,]$clip_(-ceil, ceil)
+        with_no_grad(subEta[,t,,,]$clip_(-ceil, ceil))
         
         subEtaSq[,t,,,,] <- subEta[,t,,,]$clone()$unsqueeze(dim=-1)$matmul(subEta[,t,,,]$clone()$unsqueeze(dim=-2))
-        subEtaSq[,t,,,,]$clip_(-ceil, ceil)
-        with_no_grad(subEtaSq[,t,,,,] <- (subEtaSq[,t,,,,] + subEtaSq[,t,,,,]$transpose(4, 5)) / 2)
-        
-        # store the pair (s,s') as data frame 
-        jS <- expand.grid(s1=c(1,2), s2=c(1,2))
-        
-        with_no_grad ({
-          for (js in 1:nrow(jS)) {
-            s1 <- jS$s1[js]; s2 <- jS$s2[js]
-            subEtaSqEig <- linalg_eigh(subEtaSq[,t,s1,s2,,]) 
-            subEtaSqEig[[1]]$real$clip_(epsilon, ceil)
-            for (row in 1:N) {
-              subEtaSq[row,t,s1,s2,,] <- subEtaSqEig[[2]]$real[row,,]$matmul(subEtaSqEig[[1]]$real[row,]$diag())$matmul(subEtaSqEig[[2]]$real[row,,]$transpose(1, 2)) 
-              while (as.numeric(subEtaSq[row,t,s1,s2,,]$det()) < epsilon) {
-                subEtaSq[row,t,s1,s2,,]$add_(2e-1 * torch_eye(Nf1)) } } } })
+        with_no_grad({
+          subEtaSq[,t,,,,]$clip_(-ceil, ceil)
+          subEtaSq[,t,,,,] <- (subEtaSq[,t,,,,] + subEtaSq[,t,,,,]$transpose(4, 5)) / 2 })
         
         mP[,t+1,,,] <- (W[,t,,]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) * (jP2[,t,,,,]$clone() + subEtaSq[,t,,,,]$clone()))$sum(dim=3) 
-        mP[,t+1,,,]$clip_(-ceil, ceil)
         with_no_grad ({
+          mP[,t+1,,,]$clip_(-ceil, ceil)
           mP[,t+1,,,] <- (mP[,t+1,,,] + mP[,t+1,,,]$transpose(3, 4)) / 2
           for (s1 in 1:2) {
             mPEig <- linalg_eigh(mP[,t+1,s1,,]) 
-            mPEig[[1]]$real$clip_(epsilon, ceil)
+            mPEig[[1]]$real$clip_(sEpsilon, ceil)
             for (row in 1:N) {
               mP[row,t+1,s1,,] <- mPEig[[2]]$real[row,,]$matmul(mPEig[[1]]$real[row,]$diag())$matmul(mPEig[[2]]$real[row,,]$transpose(1, 2))
-              while (as.numeric(mP[row,t+1,s1,,]$det()) < epsilon) {
-                mP[row,t+1,s1,,]$add_(2e-1 * torch_eye(Nf1)) } } } }) } 
+              while (as.numeric(mP[row,t+1,s1,,]$det()) < 0) {
+                mP[row,t+1,s1,,]$add_(lEpsilon * torch_eye(Nf1)) } } } }) } 
       
       # aggregated (summed) likelihood at each optimization step
       loss <- -mLik[,]$sum()
       sumLik[iter] <- as.numeric(-loss)
       
       # stopping criterion
-      crit <- ifelse(abs(sumLik[iter][[1]] - sumLik[1][[1]]) > epsilon, (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / abs(sumLik[iter][[1]] - sumLik[1][[1]]), 0)
+      crit <- ifelse(abs(sumLik[iter][[1]] - sumLik[1][[1]]) > sEpsilon, (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / abs(sumLik[iter][[1]] - sumLik[1][[1]]), 0)
       # add count if the new sumLik does not beat the best score
       count <- ifelse(crit < 5e-2, count + 1, 0)
       
@@ -434,8 +424,8 @@ for (init in 1:nInit) {
       m_hat <- m / (1 - betas[1]**iter)
       v_hat <- v / (1 - betas[2]**iter)
       
-      denom <- sqrt(v_hat) + epsilon
-      denom[denom < epsilon] <- epsilon
+      denom <- sqrt(v_hat) + sEpsilon
+      denom[denom < sEpsilon] <- sEpsilon
       
       index <- 0
       for (var in 1:length(theta)) {
