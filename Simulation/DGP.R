@@ -98,4 +98,5 @@ df <- list(eta1=eta1, eta2=eta2, y1=y1, y2=y2,
 #   
 # plot_ly(z=store, type='heatmap')
 # plot(store[1,])
-  
+
+

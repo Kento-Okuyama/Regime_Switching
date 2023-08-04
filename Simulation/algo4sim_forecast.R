@@ -2,13 +2,16 @@
 library(torch)
 # install.packages('reticulate')
 library(reticulate)
+# install.packages("cowplot")
+library(cowplot)
 
-nInit <- 10
-maxIter <- 500
+nInit <- 5
+maxIter <- 300
 sEpsilon <- 1e-6
 ceil <- 1e6
 lr <- 1e-3
 betas <- c(.9, .999)
+H <- 50
 
 y1 <- df$y1
 y2 <- df$y2
@@ -28,8 +31,9 @@ eta2 <- torch_tensor(eta2)
 set.seed(42)
 sumLikBest <- 0
 
-for (init in 1:nInit) {
-  cat('Init step ', init, '\n')
+init <- 0
+while (init < nInit) {
+  cat('Init step ', init+1, '\n')
   iter <- 1
   count <- 0
   sumLik <- list()
@@ -48,8 +52,8 @@ for (init in 1:nInit) {
   Q2 <- torch_tensor(diag(df$Q[,2]))
   R1 <- torch_tensor(diag(df$R[,1]))
   R2 <- torch_tensor(diag(df$R[,2]))
-  gamma11 <- torch_tensor(runif(1, -5, 0))
-  gamma21 <- torch_tensor(rep(abs(rnorm(1, 0, .5)), Nf1))
+  gamma11 <- torch_tensor(runif(1, -3, 0))
+  gamma21 <- torch_tensor(rep(-abs(rnorm(1, 0, .5)), Nf1))
   
   # with_detect_anomaly ({
   try (silent=FALSE, {
@@ -73,22 +77,22 @@ for (init in 1:nInit) {
         #Q1=Q1, Q2=Q2, R1=R1, R2=R2, 
         gamma11=gamma11, gamma21=gamma21)
       
-      jEta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.2 (LHS)
+      jEta <- torch_full(c(N,Nt+H,2,2,Nf1), NaN) # Eq.2 (LHS)
       jDelta <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.3 (LHS)
-      jP <- torch_full(c(N,Nt,2,2,Nf1,Nf1), NaN) # Eq.4 (LHS)
+      jP <- torch_full(c(N,Nt+H,2,2,Nf1,Nf1), NaN) # Eq.4 (LHS)
       jV <- torch_full(c(N,Nt,2,2,No1), NaN) # Eq.5 (LHS)
       jF <- torch_full(c(N,Nt,2,2,No1,No1), NaN) # Eq.6 (LHS)
       jEta2 <- torch_full(c(N,Nt,2,2,Nf1), NaN) # Eq.7 (LHS)
       jP2 <- torch_full(c(N,Nt,2,2,Nf1,Nf1), NaN) # Eq.8 (LHS)
-      mEta <- torch_full(c(N,Nt+1,2,Nf1), NaN) # Eq.9-1 (LHS)
-      mP <- torch_full(c(N,Nt+1,2,Nf1,Nf1), NaN) # Eq.9-2 (LHS)
+      mEta <- torch_full(c(N,Nt+H+1,2,Nf1), NaN) # Eq.9-1 (LHS)
+      mP <- torch_full(c(N,Nt+H+1,2,Nf1,Nf1), NaN) # Eq.9-2 (LHS)
       W <- torch_full(c(N,Nt,2,2), NaN) # Eq.9-3 (LHS)
-      jPr <- torch_full(c(N,Nt,2,2), NaN) # Eq.10-1 (LHS)
+      jPr <- torch_full(c(N,Nt+H,2,2), NaN) # Eq.10-1 (LHS)
       mLik <- torch_full(c(N,Nt), NaN) # Eq.10-2 (LHS)
       jPr2 <- torch_full(c(N,Nt,2,2), NaN) # Eq.10-3 (LHS)
-      mPr <- torch_full(c(N,Nt+1), NaN) # Eq.10-4 (LHS)
+      mPr <- torch_full(c(N,Nt+H+1), NaN) # Eq.10-4 (LHS)
       jLik <- torch_full(c(N,Nt,2,2), NaN) # Eq.11 (LHS)
-      tPr <- torch_full(c(N,Nt,2), NaN) # Eq.12 (LHS)
+      tPr <- torch_full(c(N,Nt+H,2), NaN) # Eq.12 (LHS)
       KG <- torch_full(c(N,Nt,2,2,Nf1,No1), NaN) # Kalman gain function
       I_KGLmd <- torch_full(c(N,Nt,2,2,Nf1,Nf1), NaN) 
       denom1 <- torch_full(c(N,Nt), NaN)
@@ -101,8 +105,8 @@ for (init in 1:nInit) {
       mPr[,1] <- sEpsilon
       
       for (t in 1:Nt) {
-        if (t%%10==0) {cat('   t=', t, '\n')}
-        
+        # if (t%%10==0) {cat('   t=', t, '\n')}
+         
         jEta[,t,1,1,] <- B11 + mEta[,t,1,]$clone()$matmul(B21) + (eta2$clone() * B31)
         jEta[,t,2,1,] <- B12 + mEta[,t,1,]$clone()$matmul(B22) + (eta2$clone() * B32)
         jEta[,t,2,2,] <- B12 + mEta[,t,2,]$clone()$matmul(B22) + (eta2$clone() * B32)
@@ -185,7 +189,7 @@ for (init in 1:nInit) {
         mP[,t+1,1,,] <- W[,t,1,1]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) * (jP2[,t,1,1,,]$clone() + subEtaSq[,t,1,1,,]$clone()) 
         mP[,t+1,2,,] <- (W[,t,2,]$clone()$unsqueeze(dim=-1)$unsqueeze(dim=-1) * (jP2[,t,2,,,]$clone() + subEtaSq[,t,2,,,]$clone()))$sum(2) }
       
-      loss <- -mLik[,]$sum()
+      loss <- -mLik[,1:Nt]$sum()
       sumLik[iter] <- -as.numeric(loss)
       
       if (is.infinite(sumLik[iter][[1]])) {
@@ -196,7 +200,7 @@ for (init in 1:nInit) {
         break }
       
       crit <- ifelse(abs(sumLik[iter][[1]] - sumLik[1][[1]]) > sEpsilon, (sumLik[iter][[1]] - sumLik[iter-1][[1]]) / abs(sumLik[iter][[1]] - sumLik[1][[1]]), 0)
-      count <- ifelse(crit < .01, count + 1, 0)
+      count <- ifelse(crit < 1e-3, count + 1, 0)
       
       cat('   sum likelihood = ', sumLik[iter][[1]], '\n')
       plot(unlist(sumLik), xlab='optimization step', ylab='sum likelihood', type='b')
@@ -245,11 +249,12 @@ for (init in 1:nInit) {
       gamma11 <- torch_tensor(theta$gamma11)
       gamma21 <- torch_tensor(theta$gamma21)
       
-      iter <- iter + 1 } }) }
+      iter <- iter + 1 } 
+    init <- init + 1 }) }
 
-# heatmap((as.array(mPr) > .5) + 1, Colv=NA, Rowv=NA, scale='none', revC=TRUE)
-plot_ly(z=(as.array(mPr) > .5) + 1, colorscale='Grays', type='heatmap')
-# plot_ly(z=as.array(mPr), colorscale='Grays', type='heatmap')
+# heatmap((as.array(mPr[,1:(Nt+1)]) > .5) + 1, Colv=NA, Rowv=NA, scale='none', revC=TRUE)
+plot_ly(z=(as.array(mPr[,1:(Nt+1)]) > .5) + 1, colorscale='Grays', type='heatmap')
+# plot_ly(z=as.array(mPr[,1:(Nt+1)]), colorscale='Grays', type='heatmap')
 
 plot_ly(z=S, colorscale='Grays', type='heatmap')
 
@@ -258,3 +263,84 @@ table(S[,Nt])
 
 # heatmap(as.array(cbind((as.array(mPr[,Nt+1])>.5) + 1, S[,Nt])), Colv=NA, Rowv=NA, scale='none', revC=TRUE)
 plot_ly(z=as.array(cbind((as.array(mPr[,Nt+1])>.5) + 1, S[,Nt])), colorscale='Grays', type='heatmap')
+
+
+plot1 <- ggplot(data=melt(as.array(mPr[,2:(Nt+1)])), aes(X2, X1, fill=value)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
+plot2 <- ggplot(data=melt(as.array(mPr[,2:(Nt+1)]) > .5) + 1, aes(X2, X1, fill=value)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
+plot3 <- ggplot(data=melt(S), aes(X2, X1, fill=value)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
+
+plot_grid(plot1, plot2, plot3)
+
+# plot4 <- ggplot(data=melt(apply(as.array(mEta[20:N,2:(Nt+1),,1]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+# plot5 <- ggplot(data=melt(apply(as.array(eta1[20:N,,1]), 2, mean)), aes(1:Nt, value)) + geom_line() + theme(legend.position='none')
+# plot6 <- ggplot(data=melt(apply(as.array(mEta[20:N,2:(Nt+1),,2]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+# plot7 <- ggplot(data=melt(apply(as.array(eta1[20:N,,2]), 2, mean)), aes(1:Nt, value)) + geom_line() + theme(legend.position='none')
+# 
+# plot_grid(plot4, plot5, plot6, plot7)
+
+m1 <- cbind(melt(apply(as.array(mEta[20:N,2:(Nt+1),,1]), c(2,3), mean)), melt(apply(as.array(eta1[20:N,,1]), 2, mean)))
+colnames(m1)[4] <- 'value2'
+plot4 <- ggplot(data=m1, aes(X1)) + geom_line(aes(y=value, group=X2, color=X2)) + geom_line(aes(y=value2), color = 'darkred', linetype='twodash') + theme(legend.position='none')
+
+m2 <- cbind(melt(apply(as.array(mEta[20:N,2:(Nt+1),,2]), c(2,3), mean)), melt(apply(as.array(eta1[20:N,,2]), 2, mean)))
+colnames(m2)[4] <- 'value2'
+plot5 <- ggplot(data=m2, aes(X1)) + geom_line(aes(y=value, group=X2, color=X2)) + geom_line(aes(y=value2), color = 'darkred', linetype='twodash') + theme(legend.position='none')
+
+plot_grid(plot4, plot5)
+
+# plot6 <- ggplot(data=melt(apply(as.array(mEta[20:N,2:(Nt+1),1,]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+# plot7 <- ggplot(data=melt(apply(as.array(mEta[20:N,2:(Nt+1),2,]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+# plot8 <- ggplot(data=melt(apply(as.array(eta1[20:N,,]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+# 
+# plot_grid(plot6, plot7, plot8)
+
+m3 <- cbind(melt(apply(as.array(mEta[20:N,2:(Nt+1),1,]), c(2,3), mean))[,c(1,3)], melt(apply(as.array(eta1[20:N,,]), c(2,3), mean))[,2:3])
+colnames(m3)[4] <- 'value2'
+plot6 <- ggplot(data=m3, aes(X1)) + geom_line(aes(y=value, group=X2, color=X2)) + geom_line(aes(y=value2, group=X2, color=X2), linetype='twodash', size=.75) + theme(legend.position='none')
+
+m4 <- cbind(melt(apply(as.array(mEta[20:N,2:(Nt+1),2,]), c(2,3), mean))[,c(1,3)], melt(apply(as.array(eta1[20:N,,]), c(2,3), mean))[,2:3])
+colnames(m4)[4] <- 'value2'
+plot7 <- ggplot(data=m4, aes(X1)) + geom_line(aes(y=value, group=X2, color=X2)) + geom_line(aes(y=value2, group=X2, color=X2), linetype='twodash', size=.75) + theme(legend.position='none')
+
+plot_grid(plot6, plot7)
+
+plot8 <- ggplot(data=melt(apply(as.array(mP[20:N,2:(Nt+1),,1,1]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+plot9 <- ggplot(data=melt(apply(as.array(mP[20:N,2:(Nt+1),,2,2]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+
+plot_grid(plot8, plot9)
+
+for (h in 1:H) {
+
+  if (h == 1) {eta1_pred <- eta1[,t-1,]
+  } else {eta1_pred <- jEta[,Nt+h-1,1,1,] * jPr[,Nt+h-1,1,1]$unsqueeze(-1) + jEta[,Nt+h-1,2,1,] * jPr[,Nt+h-1,2,1]$unsqueeze(-1) + jEta[,Nt+h-1,2,2,] * jPr[,Nt+h-1,2,2]$unsqueeze(-1)}
+  tPr[,Nt+h,1] <- (gamma11 + eta1_pred$matmul(gamma21))$sigmoid()
+  
+  jPr[,Nt+h,1,1] <- (1-tPr[,Nt+h,1]) * (1-mPr[,Nt+h])
+  jPr[,Nt+h,2,1] <- tPr[,Nt+h,1] * (1-mPr[,Nt+h]) 
+  jPr[,Nt+h,2,2] <- mPr[,Nt+h] 
+
+  mPr[,Nt+h+1] <- jPr[,Nt+h,2,]$sum(dim=2)
+  
+  jEta[,Nt+h,1,1,] <- B11 + mEta[,Nt+h,1,]$clone()$matmul(B21) + (eta2$clone() * B31)
+  jEta[,Nt+h,2,1,] <- B12 + mEta[,Nt+h,1,]$clone()$matmul(B22) + (eta2$clone() * B32)
+  jEta[,Nt+h,2,2,] <- B12 + mEta[,Nt+h,2,]$clone()$matmul(B22) + (eta2$clone() * B32)
+  
+  jP[,Nt+h,1,1,,] <- B21$matmul(mP[,Nt+h,1,,]$clone())$matmul(B21$transpose(1, 2)) + Q1
+  jP[,Nt+h,2,1,,] <- B22$matmul(mP[,Nt+h,1,,]$clone())$matmul(B22$transpose(1, 2)) + Q2
+  jP[,Nt+h,2,2,,] <- B22$matmul(mP[,Nt+h,2,,]$clone())$matmul(B22$transpose(1, 2)) + Q2
+  
+  mEta[,Nt+h+1,1,] <- jEta[,Nt+h,1,1,] * jPr[,Nt+h,1,1]$unsqueeze(-1)
+  mEta[,Nt+h+1,2,] <- (jEta[,Nt+h,2,,] * jPr[,Nt+h,2,]$unsqueeze(-1))$sum(2)
+  
+  mP[,Nt+h+1,1,,] <- jP[,Nt+h,1,1,,] * jPr[,Nt+h,1,1]$unsqueeze(-1)$unsqueeze(-1)
+  mP[,Nt+h+1,2,,] <- (jP[,Nt+h,2,,,] * jPr[,Nt+h,2,]$unsqueeze(-1)$unsqueeze(-1))$sum(2) }
+
+plot10 <- ggplot(data=melt(apply(as.array(mEta[,2:(Nt+h+1),,1]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+plot11 <- ggplot(data=melt(apply(as.array(mEta[,2:(Nt+h+1),,2]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+
+plot_grid(plot10, plot11)
+
+plot12 <- ggplot(data=melt(apply(as.array(mP[,2:(Nt+h+1),,1,1]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+plot13 <- ggplot(data=melt(apply(as.array(mP[,2:(Nt+h+1),,2,2]), c(2,3), mean)), aes(X1, value, group=X2, color=X2)) + geom_line() + theme(legend.position='none')
+
+plot_grid(plot12, plot13)
