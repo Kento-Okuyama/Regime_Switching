@@ -5,7 +5,7 @@ library(reticulate)
 # install.packages("cowplot")
 library(cowplot)
 
-nInit <- 5
+nInit <- 30
 maxIter <- 300
 sEpsilon <- 1e-6
 ceil <- 1e6

@@ -66,6 +66,7 @@ for (i in 1:N) {
     if (s == 1) {s <- 1 + (.5 * runif(1, -.5, .0) + .5 * (1 / (1 + exp(-sum(eta1[i,t-1,])))) < .0)}
     # if (s == 1) {s <- 1 + ((1 / (1 + exp(-sum(eta1[i,t-1,])))) < runif(1, 0, .3))}
     eta1[i,t,] <- B1[,s] + as.numeric(B2[,,s] %*% eta1[i,t-1,]) + as.numeric(B3[,,s] * eta2[i,]) + rnorm(L1, 0, Q[,s]) 
+    # S[i,t] <- ifelse(S[i,t-1]==2, 2, (1 / (1 + exp(-sum(eta1[i,t,]))) < runif(1, min=-.65, max=.35)) + 1)
     S[i,t] <- ifelse(S[i,t-1]==2, 2, (1 / (1 + exp(-sum(eta1[i,t,]))) < runif(1, min=-.65, max=.35)) + 1) } }
 
 
