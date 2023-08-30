@@ -12,8 +12,10 @@ library(Rlab)
 # install.packages('cowplot')
 library(cowplot)
 
-N <- 100
-Nt <- 50
+setwd("C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation")
+
+N <- 25 # try for 25, 50, 100
+Nt <- 25 # try for 25, 50
 O1 <- 6
 O2 <- 3
 L1 <- 2

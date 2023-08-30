@@ -4,7 +4,7 @@ B21d <- torch_tensor(thetaBest$B21d)
 B22d <- torch_tensor(thetaBest$B22d)
 B31 <- torch_tensor(thetaBest$B31)
 B32 <- torch_tensor(thetaBest$B32)
-Lmdd <- torch_tensor(thetaBest$Lmdd); Lmdd[c(2,4,6,7,9,11)] <- 0
+Lmdd <- torch_tensor(thetaBest$Lmdd); Lmdd[c(1,8)] <- 1; Lmdd[c(2,4,6,7,9,11)] <- 0
 Qd <- torch_tensor(thetaBest$Qd); Qd$clip_(min=lEpsilon)
 Rd <- torch_tensor(thetaBest$Rd); Rd$clip_(min=lEpsilon)
 gamma1 <- torch_tensor(thetaBest$gamma1)
@@ -200,8 +200,11 @@ for (t in (Nt-1):1) {
 
   P_sm[,t,,] <- mPr2[,t+1]$clone()$unsqueeze(-1)$unsqueeze(-1) * (mP2[,t+1,1,,]$clone() + subEtaSq3[,t,1,,]$clone()) + (1 - mPr2[,t+1]$clone())$unsqueeze(-1)$unsqueeze(-1) * (mP2[,t+1,2,,]$clone() + subEtaSq3[,t,2,,]$clone()) }
 
+# score function
+delta <- as.numeric(torch_sum(eta1_pred - df$eta1_true)**2)
+
 # information criterion
-q <- length(torch_cat(thetaBest))
+q <- length(torch_cat(thetaBest)) - 8
 AIC <- -2 * log(sumLikBest) + 2 * q
 BIC <- -2 * log(sumLikBest) + q * log(N * Nt)
 
@@ -227,8 +230,8 @@ table(S[,Nt], round(as.array(DO2[,Nt])))
 # plot of the intra-individual latent score predictions
 eta1_pred[,Nt,] <- mPr[,Nt+1]$clone()$unsqueeze(-1) * mEta[,Nt+1,1,]$clone() + (1 - mPr[,Nt+1]$clone())$unsqueeze(-1) * mEta[,Nt+1,2,]$clone()
 P_pred <- mPr[,2:(Nt+1)]$clone()$unsqueeze(-1)$unsqueeze(-1) * mP[,2:(Nt+1),1,,]$clone() + (1 - mPr[,2:(Nt+1)]$clone())$unsqueeze(-1)$unsqueeze(-1) * mP[,2:(Nt+1),2,,]$clone()
-# obs <- sample(1:N, 2)
-obs <- c(57,66)
+
+obs <- sample(1:N, 2)
 df_eta1_1 <- melt(df$eta1[obs,,1]); colnames(df_eta1_1) <- c('ID', 'time', 'eta1_1')
 df_eta1_2 <- melt(df$eta1[obs,,2]); colnames(df_eta1_2) <- c('ID', 'time', 'eta1_2')
 plot_eta1_1 <- ggplot(data=df_eta1_1, aes(time, eta1_1, group=ID, color=as.factor(ID))) + geom_line(size=.5) + theme(legend.position='none')
@@ -270,4 +273,3 @@ plot_grid(plot_eta2, plot_eta2_pred, labels='AUTO')
 # df_eta1 <- melt(as.array(eta1_sm[3:4,(Nt-20):(Nt-1),1])); colnames(df_eta1) <- c('ID', 'time', 'eta1')
 # plot_eta1 <- ggplot(data=df_eta1, aes(time, eta1, group=ID, color=as.factor(ID))) + geom_line() + ylim(-3, 3) + theme(legend.position='none')
 # plot_grid(plot_eta1, labels = "AUTO")
-

@@ -7,13 +7,13 @@ library(reticulate)
 # install.packages('cowplot')
 library(cowplot)
 
-nInit <- 30
+nInit <- 15
 maxIter <- 500
 lEpsilon <- 1e-3
 sEpsilon <- 1e-8
-ceil <- 1e5
-lr <- 1e-3
 stopCrit <- 1e-4
+lr <- 1e-3
+epsilon <- 1e-8
 betas <- c(.9, .999)
 H <- 25
 
@@ -428,7 +428,7 @@ for (init in 1:nInit) {
           v_hat[[var]] <- v[[var]] / (1 - betas[2]**iter)
           
           theta[[var]]$requires_grad_(FALSE)
-          theta[[var]]$sub_(lr * m_hat[[var]] / (sqrt(v_hat[[var]]) + sEpsilon)) } })
+          theta[[var]]$sub_(lr * m_hat[[var]] / (sqrt(v_hat[[var]]) + epsilon)) } })
       
       B11 <- torch_tensor(theta$B11)
       B12 <- torch_tensor(theta$B12)
@@ -436,7 +436,7 @@ for (init in 1:nInit) {
       B22d <- torch_tensor(theta$B22d)
       B31 <- torch_tensor(theta$B31)
       B32 <- torch_tensor(theta$B32)
-      Lmdd <- torch_tensor(theta$Lmdd); Lmdd[c(2,4,6,7,9,11)] <- 0
+      Lmdd <- torch_tensor(theta$Lmdd); Lmdd[c(1,8)] <- 1; Lmdd[c(2,4,6,7,9,11)] <- 0
       Qd <- torch_tensor(theta$Qd); Qd$clip_(min=lEpsilon)
       Rd <- torch_tensor(theta$Rd); Rd$clip_(min=lEpsilon)
       gamma1 <- torch_tensor(theta$gamma1)
@@ -448,6 +448,6 @@ for (init in 1:nInit) {
       iter <- iter + 1 }
     }) }
 
-write.csv(sumLik_list, file='data.csv')
-sumLik_list[sumLik_list$X1==12,][sumLik_list$X2==311,]
-theta_list[[2055]]
+# write.csv(sumLik_list, file='data.csv')
+# sumLik_list[sumLik_list$X1==12,][sumLik_list$X2==311,]
+# theta_list[[2055]]
