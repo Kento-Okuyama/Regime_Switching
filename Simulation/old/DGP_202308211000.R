@@ -15,7 +15,6 @@ Nt <- 50
 O1 <- 6
 O2 <- 3
 L1 <- 2
-L2 <- 1
 
 y1 <- eps1 <- array(NA, c(N, Nt, O1))
 y2 <- eps2 <- array(NA, c(N, O2))
@@ -33,9 +32,9 @@ S[,1] <- 1
 eps1_var <- rep(.3, O1) 
 eps2_var <- rep(.3, O2)
 zeta1_var <- rep(.1, L1)
-zeta2_var <- rep(.1, L2)
+zeta2_var <- .1
 eta1_var <- rep(.1, L1)
-eta2_var <- rep(.1, L2)
+eta2_var <- .1
 
 alpha21[,1] <- c(.2, .3)
 alpha21[,2] <- c(-.1, -.2)
@@ -77,8 +76,8 @@ for (t in 2:Nt) {
 
 table(S)
 table(S[,Nt])
-plot(eta1[1,,1])
-hist(eta1[,50,1])
+# plot(eta1[1,,1])
+# hist(eta1[,50,1])
 
 df <- list(y1=y1, y2=y2, N=N, Nt=Nt, O1=O1, O2=O2, L1=L1,
            B11_true=alpha21[,1], B12_true=alpha21[,2], 

@@ -7,12 +7,12 @@ library(reticulate)
 # install.packages('cowplot')
 library(cowplot)
 
-nInit <- 10
-maxIter <- 300
+nInit <- 30
+maxIter <- 500
 lEpsilon <- 1e-3
 sEpsilon <- 1e-8
 ceil <- 1e5
-lr <- 1e-2
+lr <- 1e-3
 stopCrit <- 1e-4
 betas <- c(.9, .999)
 H <- 25
@@ -25,6 +25,9 @@ O1 <- df$O1
 O2 <- df$O2
 L1 <- df$L1
 
+#####################
+# Measurement model #
+#####################
 model_cfa <- '
 # latent variables
 lv =~ ov1 + ov2 + ov3 '
@@ -49,17 +52,17 @@ for (init in 1:nInit) {
   m <- v <- m_hat <- v_hat <- list()
   
   # initialize parameters
-  B11 <- torch_tensor(abs(rnorm(L1, 0, .5)))
-  B12 <- torch_tensor(-abs(rnorm(L1, 0, .5)))
-  B21d <- torch_tensor(runif(L1, 0, 1))
-  B22d <- torch_tensor(runif(L1, 0, 1))
-  B31 <- torch_tensor(abs(rnorm(L1, 0, .1)))
+  B11 <- torch_tensor(abs(rnorm(L1, 0, .3)))
+  B12 <- torch_tensor(-abs(rnorm(L1, 0, .2)))
+  B21d <- torch_tensor(runif(L1, .6, 1))
+  B22d <- torch_tensor(runif(L1, .2, .6))
+  B31 <- torch_tensor(abs(rnorm(L1, 0, .15)))
   B32 <- torch_tensor(-abs(rnorm(L1, 0, .1)))
-  Lmdd <- torch_tensor(abs(rnorm(O1*L1, 1, .5)))
+  Lmdd <- torch_tensor(runif(O1*L1, .5, 1.5))
   Lmdd[c(1,8)] <- 1; Lmdd[c(2,4,6,7,9,11)] <- 0
   Qd <- torch_tensor(abs(rnorm(L1, 0, .3)))
-  Rd <- torch_tensor(abs(rnorm(O1, 0, .5)))
-  gamma1 <- torch_tensor(abs(rnorm(1, 0, 3)))
+  Rd <- torch_tensor(abs(rnorm(O1, 0, .8)))
+  gamma1 <- torch_tensor(runif(1, 2, 5))
   gamma2 <- torch_tensor(abs(rnorm(L1, 0, 1)))
   gamma3 <- torch_tensor(0)
   gamma4 <- torch_tensor(rep(0, L1))
@@ -106,6 +109,7 @@ for (init in 1:nInit) {
       subEta <- torch_full(c(N,Nt,2,2,L1), NaN)
       subEtaSq <- torch_full(c(N,Nt,2,2,L1,L1), NaN)
       eta1_pred <- torch_full(c(N,Nt,L1), NaN)
+      P_pred <- torch_full(c(N,Nt,L1,L1), NaN)
       
       mEta[,1,,] <- 0
       mP[,1,,,] <- torch_eye(L1)
@@ -123,6 +127,10 @@ for (init in 1:nInit) {
       R2 <- Rd$clone()$diag()
       
       for (t in 1:Nt) {
+        
+        #################
+        # Kalman filter #
+        #################
 
         jEta[,t,1,1,] <- B11$clone() + mEta[,t,1,]$clone()$matmul(B21$clone()) + eta2$clone()$outer(B31$clone())
         jEta[,t,2,1,] <- B12$clone() + mEta[,t,1,]$clone()$matmul(B22$clone()) + eta2$clone()$outer(B32$clone())
@@ -165,6 +173,10 @@ for (init in 1:nInit) {
           (-.5 * jV[,t,2,1,]$clone()$unsqueeze(2)$matmul(jF[,t,2,1,,]$clone()$cholesky_inverse())$matmul(jV[,t,2,1,]$clone()$unsqueeze(-1))$squeeze()$squeeze())$exp()
         jLik[,t,2,2] <- sEpsilon + (2*pi)**(-O1/2) * jF[,t,2,2,,]$clone()$det()**(-1) *
           (-.5 * jV[,t,2,2,]$clone()$unsqueeze(2)$matmul(jF[,t,2,2,,]$clone()$cholesky_inverse())$matmul(jV[,t,2,2,]$clone()$unsqueeze(-1))$squeeze()$squeeze())$exp()
+        
+        ###################
+        # Hamilton filter #
+        ###################
         
         if (t == 1) {tPr[,t,1] <- (gamma1$clone() + gamma3$clone() * eta2$clone())$sigmoid()
         } else {
@@ -424,7 +436,7 @@ for (init in 1:nInit) {
       B22d <- torch_tensor(theta$B22d)
       B31 <- torch_tensor(theta$B31)
       B32 <- torch_tensor(theta$B32)
-      Lmdd <- torch_tensor(theta$Lmdd); Lmdd[c(1,8)] <- 1; Lmdd[c(2,4,6,7,9,11)] <- 0
+      Lmdd <- torch_tensor(theta$Lmdd); Lmdd[c(2,4,6,7,9,11)] <- 0
       Qd <- torch_tensor(theta$Qd); Qd$clip_(min=lEpsilon)
       Rd <- torch_tensor(theta$Rd); Rd$clip_(min=lEpsilon)
       gamma1 <- torch_tensor(theta$gamma1)
@@ -433,23 +445,9 @@ for (init in 1:nInit) {
       theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
                     Lmdd=Lmdd, Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
       
-      iter <- iter + 1 } }) }
+      iter <- iter + 1 }
+    }) }
 
-DO <- 2 - mPr[,2:(Nt+1)]
-
-df_S <- melt(S); colnames(df_S) <- c('ID', 'time', 'S')
-plot_S <- ggplot(data=df_S, aes(time, ID, fill=S)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
-
-df_Pr <- melt(as.array(DO)); colnames(df_Pr) <- c('ID', 'time', 'S')
-plot_Pr <- ggplot(data=df_Pr, aes(time, ID, fill=S)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
-
-df_diff <- melt(as.array(DO)); colnames(df_diff) <- c('ID', 'time', 'diff'); df_diff$diff <- abs(df_diff$diff - df_S$S)
-plot_diff <- ggplot(data=df_diff, aes(time, ID, fill=diff)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
-
-plot_grid(plot_S, plot_Pr, plot_diff, labels='AUTO')
-
-
-df_eta1_pred <- melt(as.array(eta1_pred[1:10,,1])); colnames(df_eta1_pred) <- c('ID', 'time', 'eta1_pred')
-plot_eta1_pred <- ggplot(data=df_eta1_pred, aes(time, eta1_pred, group=ID, color=as.factor(ID))) + geom_line() + theme(legend.position='bottom')
-plot_grid(plot_eta1_pred, labels = "AUTO")
-
+write.csv(sumLik_list, file='data.csv')
+sumLik_list[sumLik_list$X1==12,][sumLik_list$X2==311,]
+theta_list[[2055]]

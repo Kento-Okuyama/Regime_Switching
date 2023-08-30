@@ -1,0 +1,80 @@
+> thetaBest
+$B11
+torch_tensor
+ 0.1964
+ 0.2761
+[ CPUFloatType{2} ]
+
+$B12
+torch_tensor
+-0.2607
+-0.2440
+[ CPUFloatType{2} ]
+
+$B21d
+torch_tensor
+ 0.5110
+ 0.6760
+[ CPUFloatType{2} ]
+
+$B22d
+torch_tensor
+0.01 *
+ 7.3274
+ 8.6753
+[ CPUFloatType{2} ]
+
+$B31
+torch_tensor
+ 0.1028
+ 0.1208
+[ CPUFloatType{2} ]
+
+$B32
+torch_tensor
+-0.1286
+-0.4693
+[ CPUFloatType{2} ]
+
+$Lmdd
+torch_tensor
+ 1.0000
+ 0.0000
+ 0.7037
+ 0.0000
+ 1.3785
+ 0.0000
+ 0.0000
+ 1.0000
+ 0.0000
+ 0.7781
+ 0.0000
+ 1.0308
+[ CPUFloatType{12} ]
+
+$Qd
+torch_tensor
+ 0.1104
+ 0.3072
+[ CPUFloatType{2} ]
+
+$Rd
+torch_tensor
+ 0.9361
+ 0.2412
+ 0.0010
+ 0.8850
+ 0.0010
+ 0.0010
+[ CPUFloatType{6} ]
+
+$gamma1
+torch_tensor
+ 4.6367
+[ CPUFloatType{1} ]
+
+$gamma2
+torch_tensor
+ 1.1410
+ 1.1736
+[ CPUFloatType{2} ]

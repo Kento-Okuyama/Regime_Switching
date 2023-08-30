@@ -204,8 +204,13 @@ plot_Pr <- ggplot(data=df_Pr, aes(time, ID, fill=S)) + geom_tile(color='grey') +
 df_Pr2 <- melt(as.array(DO2)); colnames(df_Pr2) <- c('ID', 'time', 'S')
 plot_Pr2 <- ggplot(data=df_Pr2, aes(time, ID, fill=S)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
 
-plot_grid(plot_S, plot_Pr, plot_Pr2, labels = "AUTO")
+df_Pr_diff <- melt(as.array(DO2  > 1.5) + 1); colnames(df_Pr_diff) <- c('ID', 'time', 'S')
+df_Pr_diff$S <- abs(df_Pr_diff$S - df_S$S)
+plot_Pr_diff <- ggplot(data=df_Pr_diff, aes(time, ID, fill=S)) + geom_tile(color='grey') + scale_fill_gradient(low='white',high='red') + theme(legend.position='none')
 
-df_eta1 <- melt(as.array(eta1_sm[1:10,15:(Nt-1),1])); colnames(df_eta1) <- c('ID', 'time', 'eta1')
-plot_eta1 <- ggplot(data=df_eta1, aes(time, eta1, group=ID, color=as.factor(ID))) + geom_line() + ylim(-3, 3) + theme(legend.position='none')
-plot_grid(plot_eta1, labels = "AUTO")
+plot_grid(plot_S, plot_Pr, plot_Pr2, plot_Pr_diff, labels = "AUTO")
+
+# df_eta1 <- melt(as.array(eta1_sm[3:4,(Nt-20):(Nt-1),1])); colnames(df_eta1) <- c('ID', 'time', 'eta1')
+# plot_eta1 <- ggplot(data=df_eta1, aes(time, eta1, group=ID, color=as.factor(ID))) + geom_line() + ylim(-3, 3) + theme(legend.position='none')
+# plot_grid(plot_eta1, labels = "AUTO")
+
