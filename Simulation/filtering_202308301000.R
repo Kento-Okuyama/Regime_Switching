@@ -447,7 +447,3 @@ for (init in 1:nInit) {
       
       iter <- iter + 1 }
     }) }
-
-# write.csv(sumLik_list, file='data.csv')
-# sumLik_list[sumLik_list$X1==12,][sumLik_list$X2==311,]
-# theta_list[[2055]]
