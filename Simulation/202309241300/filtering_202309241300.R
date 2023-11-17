@@ -1,5 +1,4 @@
 filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxIter) {
-  
   set.seed(101*seed)
   
   lEpsilon <- 1e-3
@@ -27,10 +26,10 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxI
   y1 <- torch_tensor(y1)
   eta2 <- torch_tensor(eta2)
   
-  sumLikBest <- 0
+  sumLik_best <- 0
   
   for (init in 1:nInit) {
-    cat('Init step ', init, '\n')
+    # cat('Init step ', init, '\n')
     iter <- 1
     count <- 0
     m <- v <- m_hat <- v_hat <- list()
@@ -52,7 +51,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxI
     # with_detect_anomaly ({
     try (silent=FALSE, {
       while (count <=3 && iter <= maxIter) {
-        cat('   optim step ', iter, '\n')
+        # cat('   optim step ', iter, '\n')
         
         B11$requires_grad_()
         B12$requires_grad_()
@@ -170,64 +169,48 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxI
         loss <- -mLik$sum()
         
         if (!is.finite(as.numeric(loss))) {
-          print('   error in calculating the sum likelihood')
+          # print('   error in calculating the sum likelihood')
           with_no_grad ({
             for (var in 1:length(theta)) {theta[[var]]$requires_grad_(FALSE)} })
           break }
         
+        # contingency table
+        cTable <- table(factor(S[,Nt+1], levels=c(1,2)), factor(1 + round(as.numeric(mPr[,Nt+2,2])), levels=c(1,2)))
+        TP <- cTable[2,2]
+        TN <- cTable[1,1]
+        FP <- cTable[1,2]
+        FN <- cTable[2,1]
+        sensitivity <- TP / (TP + FN)
+        specificity <- TN / (TN + FP)
+        
+        # mean score function
+        delta <- as.numeric(sum((eta1_pred[,Nt+2,] - eta1_true[,Nt+1,])**2))
+        
         if (init == 1 && iter == 1) {
           theta_list <- data.frame(init=init, iter=iter, param=1:length(torch_cat(theta)), value=as.numeric(torch_cat(theta)))
+          theta_list_arranged <- theta_list %>%
+            group_by(init, iter) %>%
+            mutate(param = param) %>%
+            pivot_wider(id_cols = c(init, iter), names_from = param, values_from = value)
+          
           sumLik <- sumLik_init <- -as.numeric(loss)
-          sumLik_NT <- sumLik / (N * Nt)
-          
-          # information criterion
-          AIC <- -2 * log(sumLik) + 2 * q
-          BIC <- -2 * log(sumLik) + q * log(N * Nt)
-          
-          # contingency table
-          cTable <- table(factor(S[,Nt+1], levels=c(1,2)), factor(1 + round(as.numeric(mPr[,Nt+2,2])), levels=c(1,2)))
-          TP <- cTable[2,2]
-          TN <- cTable[1,1]
-          FP <- cTable[1,2]
-          FN <- cTable[2,1]
-          sensitivity <- TP / (TP + FN)
-          specificity <- TN / (TN + FP)
-  
-          # mean score function
-          delta <- as.numeric(sum((eta1_pred[,Nt+2,] - eta1_true[,Nt+1,])**2))
-          delta_N <- delta / N
-          
-          output_list <- data.frame(init=init, iter=iter, sumLik=sumLik, sumLik_NT=sumLik_NT, AIC=AIC, BIC=BIC, TP=TP, TN=TN, FP=FP, FN=FN, sensitivity=sensitivity, specificity=specificity, delta=delta, delta_N=delta_N)
+          output_list <- data.table(init=init, iter=iter, sumLik=sumLik, TP=TP, TN=TN, FP=FP, FN=FN, sensitivity=sensitivity, specificity=specificity, delta=delta)
 
         } else {
           
           theta_new <- data.frame(init=init, iter=iter, param=1:length(torch_cat(theta)), value=as.numeric(torch_cat(theta)))
+          theta_new_arranged <- theta_new %>%
+            group_by(init, iter) %>%
+            mutate(param = param) %>%
+            pivot_wider(id_cols = c(init, iter), names_from = param, values_from = value)
+          
           sumLik_prev <- sumLik
           sumLik <- -as.numeric(loss)
-          sumLik_NT <- sumLik / (N * Nt)
-          
-          # information criterion
-          AIC <- -2 * log(sumLik) + 2 * q
-          BIC <- -2 * log(sumLik) + q * log(N * Nt)
-          
-          # contingency table
-          cTable <- table(factor(S[,Nt+1], levels=c(1,2)), factor(1 + round(as.numeric(mPr[,Nt+2,2])), levels=c(1,2)))
-          TP <- cTable[2,2]
-          TN <- cTable[1,1]
-          FP <- cTable[1,2]
-          FN <- cTable[2,1]
-          sensitivity <- TP / (TP + FN)
-          specificity <- TN / (TN + FP)
-          
-          # mean score function
-          delta <- as.numeric(sum((eta1_pred[,Nt+2,] - eta1_true[,Nt+1,])**2))
-          delta_N <- delta / N
-          
-          output_new <- data.frame(init=init, iter=iter, sumLik=sumLik, sumLik_NT=sumLik_NT, AIC=AIC, BIC=BIC, TP=TP, TN=TN, FP=FP, FN=FN, sensitivity=sensitivity, specificity=specificity, delta=delta, delta_N=delta_N)
+          output_new <- data.frame(init=init, iter=iter, sumLik=sumLik, TP=TP, TN=TN, FP=FP, FN=FN, sensitivity=sensitivity, specificity=specificity, delta=delta)
           
           if (iter == 1) {sumLik_init <- sumLik}
-          theta_list <- rbind(theta_list, theta_new)
-          output_list <- rbind(output_list, output_new)
+          theta_list_arranged <- rbindlist(list(theta_list_arranged, theta_new_arranged))
+          output_list <- rbindlist(list(output_list, output_new))
           
           crit <- ifelse(abs(sumLik - sumLik_init) > sEpsilon, (sumLik - sumLik_prev) / (sumLik - sumLik_init), 0)
           count <- ifelse(crit < stopCrit, count + 1, 0)
@@ -235,18 +218,23 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxI
           if (init > 1 && iter == 100) {if (sumLik < .8 * max(output_list$sumLik[output_list$init==init-1], na.rm=TRUE)) {break} }
           
           if (count >= 3 || iter == maxIter) {
-            print('   stopping criterion is met')
+            # print('   stopping criterion is met')
             with_no_grad ({
               for (var in 1:length(theta)) {theta[[var]]$requires_grad_(FALSE)} })
             break
             
-          } else if (sumLikBest < sumLik_new$value) {
-            initBest <- init
-            iterBest <- iter
-            thetaBest <- as.numeric(torch_cat(theta)); names(thetaBest) <- names(theta)
-            sumLikBest <- sumLik } }
+          } else if (sumLik_best < sumLik) {
+            init_best <- init
+            iter_best <- iter
+            theta_best <- as.numeric(torch_cat(theta))
+            sumLik_best_NT <- sumLik / (N * Nt)
+            delta_N <- delta / N
+            AIC_best <- -2 * log(sumLik) + 2 * q
+            BIC_best <- -2 * log(sumLik) + q * log(N * Nt)
+            
+            output_best <- output_new } }
         
-        cat('   sumLik = ', sumLik, '\n')
+        # cat('   sumLik = ', sumLik, '\n')
         loss$backward()
         
         grad <- list()
@@ -289,6 +277,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxI
         iter <- iter + 1 }
     }) } 
     
-  filter <- list(thetaBest=thetaBest, sumLikBest=sumLikBest, initBest=initBest, iterBest=iterBest, theta_list=theta_list, output_list=output_list)
+  filter <- list(init_best=init_best, iter_best=iter_best, theta_best=theta_best, sumLik_best_NT=sumLik_best_NT, delta_N=delta_N, AIC_best=AIC_best, BIC_best=BIC_best, output_best=output_best, theta_list=data.table(theta_list_arranged), output_list=output_list)
+  gc()
   return(filter)
 }

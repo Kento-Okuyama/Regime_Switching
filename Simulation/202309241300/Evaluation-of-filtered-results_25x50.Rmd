@@ -1,0 +1,333 @@
+---
+title: "Evaluation-of-filter-results_25x50"
+author: "Kento Okuyama"
+date: "2023-11-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## (very) Brief introduction
+
+In this document, we evaluate the implementation of our frequentist implementation of the non-linear regime-switching state-space (RSSS) model estimation based on simulated data. Our parameter optimization consists of 300 iteration steps based on Adam. On top of that, we have 30 initialization of the starting parameter values.
+
+In our implementation, our objective function **sumLik** is maximized based on the gradient vector and Adam. For evaluation purpose, we also have the score function **delta**. This is simply calculated as the summed squared error of the one-step-ahead (of the last observed time points) prediction of our intra-individual latent variables. Further, we also have **sensitivity** and **specificity** based on the one-step-ahead regime prediction results. 
+
+For further details of the model formulation as well as theoretical foundation, please refer to my master thesis 'Forecasting in regime-switching models that emerge from filtering and machine learning'. In the following, we summarize our estimation results of 200 simulations (realizations of random variables). From now on, we focus exclusively on the 'best' result in each simulation study i.e., one that maximized our likelihood function among 30 initizalization * 300 iterations. 
+
+```{r setting directory, echo=FALSE}
+setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300')
+```
+
+### N=25, T=50
+```{r N_25_T_50, echo=FALSE}
+N <- 25; Nt <- 50
+
+seed <- 1
+filter_25x50_1 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 2
+filter_25x50_2 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 3
+filter_25x50_3 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 4
+filter_25x50_4 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 5
+filter_25x50_5 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 6
+filter_25x50_6 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 7
+filter_25x50_7 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 8
+filter_25x50_8 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 9
+filter_25x50_9 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 10
+filter_25x50_10 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 11
+filter_25x50_11 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 12
+filter_25x50_12 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 13
+filter_25x50_13 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 14
+filter_25x50_14 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 15
+filter_25x50_15 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 16
+filter_25x50_16 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 17
+filter_25x50_17 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 18
+filter_25x50_18 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 19
+filter_25x50_19 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 20
+filter_25x50_20 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 21
+filter_25x50_21 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 22
+filter_25x50_22 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 23
+filter_25x50_23 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 24
+filter_25x50_24 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 25
+filter_25x50_25 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 26
+filter_25x50_26 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+
+seed <- 27
+filter_25x50_27 <- readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep=''))
+```
+
+```{r sumLik_25x50, echo=FALSE}
+sumLik_25x50_1 <- filter_25x50_1$sumLik_best_NT
+sumLik_25x50_2 <- filter_25x50_2$sumLik_best_NT
+sumLik_25x50_3 <- filter_25x50_3$sumLik_best_NT
+sumLik_25x50_4 <- filter_25x50_4$sumLik_best_NT
+sumLik_25x50_5 <- filter_25x50_5$sumLik_best_NT
+sumLik_25x50_6 <- filter_25x50_6$sumLik_best_NT
+sumLik_25x50_7 <- filter_25x50_7$sumLik_best_NT
+sumLik_25x50_8 <- filter_25x50_8$sumLik_best_NT
+sumLik_25x50_9 <- filter_25x50_9$sumLik_best_NT
+sumLik_25x50_10 <- filter_25x50_10$sumLik_best_NT
+sumLik_25x50_11 <- filter_25x50_11$sumLik_best_NT
+sumLik_25x50_12 <- filter_25x50_12$sumLik_best_NT
+sumLik_25x50_13 <- filter_25x50_13$sumLik_best_NT
+sumLik_25x50_14 <- filter_25x50_14$sumLik_best_NT
+sumLik_25x50_15 <- filter_25x50_15$sumLik_best_NT
+sumLik_25x50_16 <- filter_25x50_16$sumLik_best_NT
+sumLik_25x50_17 <- filter_25x50_17$sumLik_best_NT
+sumLik_25x50_18 <- filter_25x50_18$sumLik_best_NT
+sumLik_25x50_19 <- filter_25x50_19$sumLik_best_NT
+sumLik_25x50_20 <- filter_25x50_20$sumLik_best_NT
+sumLik_25x50_21 <- filter_25x50_21$sumLik_best_NT
+sumLik_25x50_22 <- filter_25x50_22$sumLik_best_NT
+sumLik_25x50_23 <- filter_25x50_23$sumLik_best_NT
+sumLik_25x50_24 <- filter_25x50_24$sumLik_best_NT
+sumLik_25x50_25 <- filter_25x50_25$sumLik_best_NT
+sumLik_25x50_26 <- filter_25x50_26$sumLik_best_NT
+sumLik_25x50_27 <- filter_25x50_27$sumLik_best_NT
+sumLik_25x50_group <- c(sumLik_25x50_1, sumLik_25x50_2, sumLik_25x50_3, sumLik_25x50_4, sumLik_25x50_5, sumLik_25x50_6, sumLik_25x50_7, sumLik_25x50_8, sumLik_25x50_9, sumLik_25x50_10, sumLik_25x50_11, sumLik_25x50_12, sumLik_25x50_13, sumLik_25x50_14, sumLik_25x50_15, sumLik_25x50_16, sumLik_25x50_17, sumLik_25x50_18, sumLik_25x50_19, sumLik_25x50_20, sumLik_25x50_21, sumLik_25x50_22, sumLik_25x50_23, sumLik_25x50_24, sumLik_25x50_25, sumLik_25x50_26, sumLik_25x50_27)
+```
+
+First, we check the distribution of the resulting **sumLik**
+```{r sumLik_25x50_group}
+hist(sumLik_25x50_group, breaks=15)
+summary(sumLik_25x50_group)
+```
+
+and in log scale
+```{r log_sumLik_25x50_group}
+hist(log(sumLik_25x50_group), breaks=10)
+summary(log(sumLik_25x50_group))
+```
+It seems like there are a few instances which has much higher **sumLik** than others.
+
+```{r delta_25x50, echo=FALSE}
+delta_25x50_1 <- filter_25x50_1$delta_N
+delta_25x50_2 <- filter_25x50_2$delta_N
+delta_25x50_3 <- filter_25x50_3$delta_N
+delta_25x50_4 <- filter_25x50_4$delta_N
+delta_25x50_5 <- filter_25x50_5$delta_N
+delta_25x50_6 <- filter_25x50_6$delta_N
+delta_25x50_7 <- filter_25x50_7$delta_N
+delta_25x50_8 <- filter_25x50_8$delta_N
+delta_25x50_9 <- filter_25x50_9$delta_N
+delta_25x50_10 <- filter_25x50_10$delta_N
+delta_25x50_11 <- filter_25x50_11$delta_N
+delta_25x50_12 <- filter_25x50_12$delta_N
+delta_25x50_13 <- filter_25x50_13$delta_N
+delta_25x50_14 <- filter_25x50_14$delta_N
+delta_25x50_15 <- filter_25x50_15$delta_N
+delta_25x50_16 <- filter_25x50_16$delta_N
+delta_25x50_17 <- filter_25x50_17$delta_N
+delta_25x50_18 <- filter_25x50_18$delta_N
+delta_25x50_19 <- filter_25x50_19$delta_N
+delta_25x50_20 <- filter_25x50_20$delta_N
+delta_25x50_21 <- filter_25x50_21$delta_N
+delta_25x50_22 <- filter_25x50_22$delta_N
+delta_25x50_23 <- filter_25x50_23$delta_N
+delta_25x50_24 <- filter_25x50_24$delta_N
+delta_25x50_25 <- filter_25x50_25$delta_N
+delta_25x50_26 <- filter_25x50_26$delta_N
+delta_25x50_27 <- filter_25x50_27$delta_N
+delta_25x50_group <- c(delta_25x50_1, delta_25x50_2, delta_25x50_3, delta_25x50_4, delta_25x50_5, delta_25x50_6, delta_25x50_7, delta_25x50_8, delta_25x50_9, delta_25x50_10, delta_25x50_11, delta_25x50_12, delta_25x50_13, delta_25x50_14, delta_25x50_15, delta_25x50_16, delta_25x50_17, delta_25x50_18, delta_25x50_19, delta_25x50_20, delta_25x50_21, delta_25x50_22, delta_25x50_23, delta_25x50_24, delta_25x50_25, delta_25x50_26, delta_25x50_27)
+```
+
+Second, we check the distribution of the resulting **delta**
+```{r delta_25x50_group}
+hist(delta_25x50_group, breaks=15)
+summary(delta_25x50_group)
+```
+
+and in log scale
+```{r log_delta_25x50_group}
+hist(log(delta_25x50_group), breaks=10)
+summary(log(delta_25x50_group))
+```
+
+Please note that we prefer a smaller value as it is calculated based on the prediction error.
+
+Next, we turn our attention to how the **sumLik** and **delta** correlate. Intuitively, we expect the negative correlation so that higher **sumLik** (maximized likelihood) relates to smaller **delta** (smaller prediction error).
+
+```{r cor_sumLik_delta_25x50_group}
+plot(sumLik_25x50_group, delta_25x50_group)
+cor(sumLik_25x50_group, delta_25x50_group)
+```
+
+and in log scale
+```{r cor_log_sumLik_log_delta_25x50_group}
+plot(log(sumLik_25x50_group), log(delta_25x50_group))
+cor(log(sumLik_25x50_group), log(delta_25x50_group))
+```
+
+Unfortunately, we see a positive correlation between **sumLik** and **delta**.
+
+Then, we check the distribution of **sensitivity** and **specificity**.
+
+```{r sensitivity_25x50, echo=FALSE}
+sensitivity_25x50_1 <- filter_25x50_1$output_best$sensitivity
+sensitivity_25x50_2 <- filter_25x50_2$output_best$sensitivity
+sensitivity_25x50_3 <- filter_25x50_3$output_best$sensitivity
+sensitivity_25x50_4 <- filter_25x50_4$output_best$sensitivity
+sensitivity_25x50_5 <- filter_25x50_5$output_best$sensitivity
+sensitivity_25x50_6 <- filter_25x50_6$output_best$sensitivity
+sensitivity_25x50_7 <- filter_25x50_7$output_best$sensitivity
+sensitivity_25x50_8 <- filter_25x50_8$output_best$sensitivity
+sensitivity_25x50_9 <- filter_25x50_9$output_best$sensitivity
+sensitivity_25x50_10 <- filter_25x50_10$output_best$sensitivity
+sensitivity_25x50_11 <- filter_25x50_11$output_best$sensitivity
+sensitivity_25x50_12 <- filter_25x50_12$output_best$sensitivity
+sensitivity_25x50_13 <- filter_25x50_13$output_best$sensitivity
+sensitivity_25x50_14 <- filter_25x50_14$output_best$sensitivity
+sensitivity_25x50_15 <- filter_25x50_15$output_best$sensitivity
+sensitivity_25x50_16 <- filter_25x50_16$output_best$sensitivity
+sensitivity_25x50_17 <- filter_25x50_17$output_best$sensitivity
+sensitivity_25x50_18 <- filter_25x50_18$output_best$sensitivity
+sensitivity_25x50_19 <- filter_25x50_19$output_best$sensitivity
+sensitivity_25x50_20 <- filter_25x50_20$output_best$sensitivity
+sensitivity_25x50_21 <- filter_25x50_21$output_best$sensitivity
+sensitivity_25x50_22 <- filter_25x50_22$output_best$sensitivity
+sensitivity_25x50_23 <- filter_25x50_23$output_best$sensitivity
+sensitivity_25x50_24 <- filter_25x50_24$output_best$sensitivity
+sensitivity_25x50_25 <- filter_25x50_25$output_best$sensitivity
+sensitivity_25x50_26 <- filter_25x50_26$output_best$sensitivity
+sensitivity_25x50_27 <- filter_25x50_27$output_best$sensitivity
+sensitivity_25x50_group <- c(sensitivity_25x50_1, sensitivity_25x50_2, sensitivity_25x50_3, sensitivity_25x50_4, sensitivity_25x50_5, sensitivity_25x50_6, sensitivity_25x50_7, sensitivity_25x50_8, sensitivity_25x50_9, sensitivity_25x50_10, sensitivity_25x50_11, sensitivity_25x50_12, sensitivity_25x50_13, sensitivity_25x50_14, sensitivity_25x50_15, sensitivity_25x50_16, sensitivity_25x50_17, sensitivity_25x50_18, sensitivity_25x50_19, sensitivity_25x50_20, sensitivity_25x50_21, sensitivity_25x50_22, sensitivity_25x50_23, sensitivity_25x50_24, sensitivity_25x50_25, sensitivity_25x50_26, sensitivity_25x50_27)
+```
+
+First for **sensitivity**
+```{r sensitivity_25x50_group}
+hist(sensitivity_25x50_group, breaks=10)
+summary(sensitivity_25x50_group)
+```
+
+```{r output_best$specificity_25x50, echo=FALSE}
+specificity_25x50_1 <- filter_25x50_1$output_best$specificity
+specificity_25x50_2 <- filter_25x50_2$output_best$specificity
+specificity_25x50_3 <- filter_25x50_3$output_best$specificity
+specificity_25x50_4 <- filter_25x50_4$output_best$specificity
+specificity_25x50_5 <- filter_25x50_5$output_best$specificity
+specificity_25x50_6 <- filter_25x50_6$output_best$specificity
+specificity_25x50_7 <- filter_25x50_7$output_best$specificity
+specificity_25x50_8 <- filter_25x50_8$output_best$specificity
+specificity_25x50_9 <- filter_25x50_9$output_best$specificity
+specificity_25x50_10 <- filter_25x50_10$output_best$specificity
+specificity_25x50_11 <- filter_25x50_11$output_best$specificity
+specificity_25x50_12 <- filter_25x50_12$output_best$specificity
+specificity_25x50_13 <- filter_25x50_13$output_best$specificity
+specificity_25x50_14 <- filter_25x50_14$output_best$specificity
+specificity_25x50_15 <- filter_25x50_15$output_best$specificity
+specificity_25x50_16 <- filter_25x50_16$output_best$specificity
+specificity_25x50_17 <- filter_25x50_17$output_best$specificity
+specificity_25x50_18 <- filter_25x50_18$output_best$specificity
+specificity_25x50_19 <- filter_25x50_19$output_best$specificity
+specificity_25x50_20 <- filter_25x50_20$output_best$specificity
+specificity_25x50_21 <- filter_25x50_21$output_best$specificity
+specificity_25x50_22 <- filter_25x50_22$output_best$specificity
+specificity_25x50_23 <- filter_25x50_23$output_best$specificity
+specificity_25x50_24 <- filter_25x50_24$output_best$specificity
+specificity_25x50_25 <- filter_25x50_25$output_best$specificity
+specificity_25x50_26 <- filter_25x50_26$output_best$specificity
+specificity_25x50_27 <- filter_25x50_27$output_best$specificity
+specificity_25x50_group <- c(specificity_25x50_1, specificity_25x50_2, specificity_25x50_3, specificity_25x50_4, specificity_25x50_5, specificity_25x50_6, specificity_25x50_7, specificity_25x50_8, specificity_25x50_9, specificity_25x50_10, specificity_25x50_11, specificity_25x50_12, specificity_25x50_13, specificity_25x50_14, specificity_25x50_15, specificity_25x50_16, specificity_25x50_17, specificity_25x50_18, specificity_25x50_19, specificity_25x50_20, specificity_25x50_21, specificity_25x50_22, specificity_25x50_23, specificity_25x50_24, specificity_25x50_25, specificity_25x50_26, specificity_25x50_27)
+```
+
+And for **specificity**
+```{r specificity_25x50_group}
+hist(specificity_25x50_group, breaks=15)
+summary(specificity_25x50_group)
+```
+
+We can also check the correlation between **sensitivity** and **specificity**.
+```{r cor_sensitivity_specificity_25x50_group}
+plot(sensitivity_25x50_group, specificity_25x50_group)
+cor(sensitivity_25x50_group, specificity_25x50_group)
+```
+
+Finally we examine our parameter estimation.
+```{r theta_25x50, echo=FALSE}
+theta_25x50_1 <- filter_25x50_1$theta_best
+theta_25x50_2 <- filter_25x50_2$theta_best
+theta_25x50_3 <- filter_25x50_3$theta_best
+theta_25x50_4 <- filter_25x50_4$theta_best
+theta_25x50_5 <- filter_25x50_5$theta_best
+theta_25x50_6 <- filter_25x50_6$theta_best
+theta_25x50_7 <- filter_25x50_7$theta_best
+theta_25x50_8 <- filter_25x50_8$theta_best
+theta_25x50_9 <- filter_25x50_9$theta_best
+theta_25x50_10 <- filter_25x50_10$theta_best
+theta_25x50_11 <- filter_25x50_11$theta_best
+theta_25x50_12 <- filter_25x50_12$theta_best
+theta_25x50_13 <- filter_25x50_13$theta_best
+theta_25x50_14 <- filter_25x50_14$theta_best
+theta_25x50_15 <- filter_25x50_15$theta_best
+theta_25x50_16 <- filter_25x50_16$theta_best
+theta_25x50_17 <- filter_25x50_17$theta_best
+theta_25x50_18 <- filter_25x50_18$theta_best
+theta_25x50_19 <- filter_25x50_19$theta_best
+theta_25x50_20 <- filter_25x50_20$theta_best
+theta_25x50_21 <- filter_25x50_21$theta_best
+theta_25x50_22 <- filter_25x50_22$theta_best
+theta_25x50_23 <- filter_25x50_23$theta_best
+theta_25x50_24 <- filter_25x50_24$theta_best
+theta_25x50_25 <- filter_25x50_25$theta_best
+theta_25x50_26 <- filter_25x50_26$theta_best
+theta_25x50_27 <- filter_25x50_27$theta_best
+theta_25x50_group <- rbind(theta_25x50_1, theta_25x50_2, theta_25x50_3, theta_25x50_4, theta_25x50_5, theta_25x50_6, theta_25x50_7, theta_25x50_8, theta_25x50_9, theta_25x50_10, theta_25x50_11, theta_25x50_12, theta_25x50_13, theta_25x50_14, theta_25x50_15, theta_25x50_16, theta_25x50_17, theta_25x50_18, theta_25x50_19, theta_25x50_20, theta_25x50_21, theta_25x50_22, theta_25x50_23, theta_25x50_24, theta_25x50_25, theta_25x50_26, theta_25x50_27)
+colnames(theta_25x50_group) <- c('B11_1 (.2)', 'B11_2 (.3)', 'B12_1 (-.1)', 'B12_2 (-.2)', 'B21d_1 (.8)', 'B21d_2 (.8)', 'B22d_1 (.4)', 'B22d_2 (.4)', 'B31_1 (.1)', 'B31_2 (.1)', 'B32_1 (-.1)', 'B31_2 (-.1)', 'Lmdd_1 (1)', 'Lmdd_2 (0)', 'Lmdd_3 (.4)', 'Lmdd_4 (0)', 'Lmdd_5 (.8)', 'Lmdd_6 (0)', 'Lmdd_7 (0)', 'Lmdd_8 (1)', 'Lmdd_9 (0)', 'Lmdd_10 (.5)', 'Lmdd_11 (0)', 'Lmdd_12 (1.2)', 'Qd_1 (.2)', 'Qd_2 (.2)', 'Rd_1 (.3)', 'Rd_2 (.3)', 'Rd_3 (.3)', 'Rd_4 (.3)', 'Rd_5 (.3)', 'Rd_6 (.3)', 'gamma1 (3.5)', 'gamma2_1 (1)', 'gamma2_2 (1)')
+```
+
+The distribution of parameter estimation are shown below. True parameter values are in parenthesis.
+
+```{r theta_25x50_group}
+summary(theta_25x50_group)
+```

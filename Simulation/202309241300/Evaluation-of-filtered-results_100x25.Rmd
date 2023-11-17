@@ -1,0 +1,53 @@
+---
+title: "Evaluation-of-filter-results_100x25"
+author: "Kento Okuyama"
+date: "2023-11-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## (very) Brief introduction
+
+In this document, we evaluate the implementation of our frequentist implementation of the non-linear regime-switching state-space (RSSS) model estimation based on simulated data. Our parameter optimization consists of 300 iteration steps based on Adam. On top of that, we have 30 initialization of the starting parameter values.
+
+In our implementation, our objective function **sumLik** is maximized based on the gradient vector and Adam. For evaluation purpose, we also have the score function **delta**. This is simply calculated as the summed squared error of the one-step-ahead (of the last observed time points) prediction of our intra-individual latent variables. Further, we also have **sensitivity** and **specificity** based on the one-step-ahead regime prediction results. 
+
+For further details of the model formulation as well as theoretical foundation, please refer to my master thesis 'Forecasting in regime-switching models that emerge from filtering and machine learning'. In the following, we summarize our estimation results of 200 simulations (realizations of random variables). From now on, we focus exclusively on the 'best' result in each simulation study i.e., one that maximized our likelihood function among 30 initizalization * 300 iterations. 
+
+```{r setting directory, echo=FALSE}
+setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300')
+```
+
+```{r load results, echo=FALSE}
+filter1 <- readRDS('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202309241300/output/filter__sim_1_N_100_T_25_O1_6_O2_3_L1_2.RDS')
+```
+
+```{r best}
+print(filter1$output_best)
+```
+
+```{r output summary}
+summary(filter1$output_list)
+```
+
+```{r sumLik plot}
+plot(log(filter1$output_list$sumLik), ylab='log(sumLik)')
+```
+
+```{r sensitivity-specificity plot}
+plot(filter1$output_list$sensitivity, filter1$output_list$specificity, xlab='sensitivity', ylab='specificity')
+cor(filter1$output_list$sensitivity, filter1$output_list$specificity)
+```
+
+```{r delta plot}
+plot(log(filter1$output_list$delta), ylab='log(delta)')
+```
+
+```{r dist}
+plot(log(filter1$output_list$sumLik), log(filter1$output_list$delta), xlab='log(sumLik)', ylab='log(delta)')
+cor(log(filter1$output_list$sumLik), log(filter1$output_list$delta))
+```
+

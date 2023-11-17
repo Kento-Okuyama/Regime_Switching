@@ -5,7 +5,7 @@ if (!requireNamespace('doParallel', quietly = TRUE)) {
 
 library(doParallel)  
 
-cl <- makeCluster(23)
+cl <- makeCluster(7)
 registerDoParallel(cl)
 # stopCluster(cl)
 
