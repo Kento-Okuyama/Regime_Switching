@@ -1,0 +1,115 @@
+---
+title: "Evaluation_75x25"
+author: "Kento Okuyama"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## (very) Brief introduction
+
+In this document, we evaluate the implementation of our frequentist implementation of the non-linear regime-switching state-space (RSSS) model estimation based on simulated data. Our implementation is a special case in which the regime-switch occurs only in one direction (i.e., there's no switch back). Our parameter optimization consists of 300 iteration steps based on Adam and  30 initializations of the starting parameter values.
+
+In our implementation, our objective function **sumLik** is maximized based on the gradient vector and Adam. For evaluation purpose, we also have the score function **delta**. This is simply calculated as the summed squared error of the one-step-ahead (of the last observed time points) prediction of our intra-individual latent variables. Further, we also have **sensitivity** and **specificity** based on the one-step-ahead regime prediction results. 
+
+For further details of the model formulation as well as theoretical foundation, please refer to my master thesis '**Forecasting in regime-switching models that emerge from filtering and machine learning**'. In the following, we summarize our estimation results of 200 simulations (realizations of random variables). From now on, we focus exclusively on the 'best' result in each simulation study i.e., one that maximized our likelihood function among 30 initizalization * 300 iterations. 
+
+```{r setting directory, echo=FALSE}
+setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300')
+```
+
+### N=75, T=25
+
+```{r N_75_T_25, echo=FALSE}
+N <- 75; Nt <- 25
+seeds <- c(1:3, 5:69)
+df_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300/output/df__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
+names(df_list) <- paste0('df_75x25_', seeds)
+
+filter_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
+names(filter_list) <- paste0('filter_75x25_', seeds)
+```
+
+Before starting the evaluation of our estimated results, let's take a look at the simulated data. We are particularly interested in the regime-switch occurence. We will summarize the percentage of subjects who made a regime switch in each of simulated realizations.
+
+```{r S, echo=FALSE}
+S_75x25_group <- unlist(lapply(df_list, function(df) mean(df$S[,Nt]==2)))
+hist(S_75x25_group)
+summary(S_75x25_group)
+```
+
+First, we check the distribution of the resulting **sumLik** in log scale.
+
+```{r log_sumLik_75x25_group, echo=FALSE}
+sumLik_75x25_group <- unlist(lapply(filter_list, function(filter) filter$sumLik_best_NT))
+hist(log(sumLik_75x25_group))
+summary(log(sumLik_75x25_group))
+```
+It seems like there are a few instances which has much higher **sumLik** than others.
+
+Second, we check the distribution of the resulting **delta** in log scale.
+
+```{r log_delta_75x25_group, echo=FALSE}
+delta_75x25_group <- unlist(lapply(filter_list, function(filter) filter$delta_N))
+hist(log(delta_75x25_group))
+summary(log(delta_75x25_group))
+```
+
+Please note that we prefer a smaller value as it is calculated based on the prediction error.
+
+Next, we turn our attention to how the **sumLik** and **delta** correlate (in log scale). Intuitively, we expect the negative correlation so that higher **sumLik** (maximized likelihood) relates to smaller **delta** (smaller prediction error).
+
+```{r cor_log_sumLik_log_delta_75x25_group, echo=FALSE}
+plot(log(sumLik_75x25_group), log(delta_75x25_group))
+cor(log(sumLik_75x25_group), log(delta_75x25_group))
+```
+
+Then, we check the distribution of **sensitivity** and **specificity**. First for **sensitivity**
+
+```{r sensitivity_75x25_group, echo=FALSE}
+sensitivity_75x25_group <- unlist(lapply(filter_list, function(filter) filter$output_best$sensitivity))
+hist(sensitivity_75x25_group)
+summary(sensitivity_75x25_group)
+```
+
+And for **specificity**
+
+```{r specificity_75x25_group, echo=FALSE}
+specificity_75x25_group <- unlist(lapply(filter_list, function(filter) filter$output_best$specificity))
+hist(specificity_75x25_group, breaks=15)
+summary(specificity_75x25_group)
+```
+
+We can also check the correlation between **sensitivity** and **specificity**.
+
+```{r cor_sensitivity_specificity_75x25_group, echo=FALSE}
+plot(sensitivity_75x25_group, specificity_75x25_group)
+cor(sensitivity_75x25_group, specificity_75x25_group)
+```
+
+Finally we examine our parameter estimation. The distribution of parameter estimation are shown below. True parameter values are in parenthesis.
+
+```{r theta_75x25_group, echo=FALSE}
+theta_75x25_group <- do.call(rbind, lapply(filter_list, function(filter) filter$theta_best))
+colnames(theta_75x25_group) <- c('B11_1 (.2)', 'B11_2 (.3)', 'B12_1 (-.1)', 'B12_2 (-.2)', 'B21d_1 (.8)', 'B21d_2 (.8)', 'B22d_1 (.4)', 'B22d_2 (.4)', 'B31_1 (.1)', 'B31_2 (.1)', 'B32_1 (-.1)', 'B31_2 (-.1)', 'Lmdd_1 (1)', 'Lmdd_2 (0)', 'Lmdd_3 (.4)', 'Lmdd_4 (0)', 'Lmdd_5 (.8)', 'Lmdd_6 (0)', 'Lmdd_7 (0)', 'Lmdd_8 (1)', 'Lmdd_9 (0)', 'Lmdd_10 (.5)', 'Lmdd_11 (0)', 'Lmdd_12 (1.2)', 'Qd_1 (.2)', 'Qd_2 (.2)', 'Rd_1 (.3)', 'Rd_2 (.3)', 'Rd_3 (.3)', 'Rd_4 (.3)', 'Rd_5 (.3)', 'Rd_6 (.3)', 'gamma1 (3.5)', 'gamma2_1 (1)', 'gamma2_2 (1)')
+summary(theta_75x25_group)
+```
+
+Finally, we check the rate of regime-switch prediction by the time of the final prediction which we call the dropout prediction rate.
+
+```{r pred_drouput_rate_75x25_group, echo=FALSE}
+par(mfrow = c(1, 2))
+pred_rate_75x25_group <- unlist(lapply(filter_list, function(filter) (filter$output_best$TP + filter$output_best$FP) / N))
+hist(pred_rate_75x25_group)
+hist(S_75x25_group)
+summary(pred_rate_75x25_group)
+```
+
+```{r cor_pred_drouput_rate_75x25_group, echo=FALSE}
+plot(S_75x25_group, pred_rate_75x25_group)
+cor(S_75x25_group, pred_rate_75x25_group)
+```
+
