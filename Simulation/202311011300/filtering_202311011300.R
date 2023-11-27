@@ -175,7 +175,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, S, eta1_true, nInit, maxI
           break }
         
         # contingency table
-        cTable <- table(factor(S[,Nt+1], levels=c(1,2)), factor(1 + round(as.numeric(mPr[,Nt+2,2])), levels=c(1,2)))
+        # cTable <- table(factor(S[,Nt+1], levels=c(1,2)), factor(1 + round(as.numeric(mPr[,Nt+2,2])), levels=c(1,2)))
+        cTable <- table(factor(S[,Nt+1], levels=c(1,2)), factor(1 + as.numeric(as.numeric(mPr[,Nt+2,2]) > quantile(as.numeric(mPr[,Nt+2,2]), 0.15)), levels=c(1,2)))
         TP <- cTable[2,2]
         TN <- cTable[1,1]
         FP <- cTable[1,2]
