@@ -25,7 +25,7 @@ setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regi
 
 ```{r N_75_T_25, echo=FALSE}
 N <- 75; Nt <- 25
-seeds <- c(1:3, 5:69)
+seeds <- c(1:70)
 df_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300/output/df__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
 names(df_list) <- paste0('df_75x25_', seeds)
 list2env(df_list, envir = .GlobalEnv)

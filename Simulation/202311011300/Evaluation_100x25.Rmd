@@ -18,25 +18,23 @@ In our implementation, our objective function **sumLik** is maximized based on t
 For further details of the model formulation as well as theoretical foundation, please refer to my master thesis '**Forecasting in regime-switching models that emerge from filtering and machine learning**'. In the following, we summarize our estimation results of 200 simulations (realizations of random variables). From now on, we focus exclusively on the 'best' result in each simulation study i.e., one that maximized our likelihood function among 30 initizalization * 300 iterations. 
 
 ```{r setting directory, echo=FALSE}
-setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300')
+setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311301300')
+# knitr::opts_knit$set(root.dir = 'C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311301300')
+
 ```
 
 ### N=100, T=25
 
 ```{r N_100_T_25, echo=FALSE}
 N <- 100; Nt <- 25
-seeds <- c(1:5)
-df_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300/output/df__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
+seeds <- c(1:)
+df_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311301300/output/df__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
 names(df_list) <- paste0('df_100x25_', seeds)
 list2env(df_list, envir = .GlobalEnv)
 
-filter_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
+filter_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311301300/output/filter__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
 names(filter_list) <- paste0('filter_100x25_', seeds)
 list2env(filter_list, envir = .GlobalEnv)
-
-check_list <- lapply(seeds, function(seed) readRDS(paste('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Simulation/202311011300/output/check__sim_', seed, '_N_', N, '_T_', Nt, '_O1_6_O2_3_L1_2.RDS', sep='')))
-names(check_list) <- paste0('check_100x25_', seeds)
-list2env(check_list, envir = .GlobalEnv)
 ```
 
 Before starting the evaluation of our estimated results, let's take a look at the simulated data. We are particularly interested in the regime-switch occurence. We will summarize the percentage of subjects who made a regime switch in each of simulated realizations.
@@ -117,26 +115,4 @@ summary(pred_rate_100x25_group)
 ```{r cor_pred_drouput_rate_100x25_group, echo=FALSE}
 plot(S_100x25_group, pred_rate_100x25_group)
 cor(S_100x25_group, pred_rate_100x25_group)
-```
-Then, we check the distribution of **sensitivity** and **specificity**. First for **sensitivity**
-
-```{r sensitivity2_100x25_group, echo=FALSE}
-sensitivity2_100x25_group <- unlist(lapply(check_list, function(check) check$sensitivity))
-hist(sensitivity2_100x25_group)
-summary(sensitivity2_100x25_group)
-```
-
-And for **specificity**
- 
-```{r specificity2_100x25_group, echo=FALSE}
-specificity2_100x25_group <- unlist(lapply(check_list, function(check) check$specificity))
-hist(specificity2_100x25_group)
-summary(specificity2_100x25_group)
-```
-
-We can also check the correlation between **sensitivity** and **specificity**.
-
-```{r cor_sensitivity2_specificity2_100x25_group, echo=FALSE}
-plot(sensitivity2_100x25_group, specificity2_100x25_group)
-cor(sensitivity2_100x25_group, specificity2_100x25_group)
 ```

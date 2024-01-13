@@ -67,7 +67,7 @@ preprocessing <- function() {
   for (i in 1:length(uID)) {
     # take ith person's data from y2D
     y1_2D_i <- y1_2D[y1_2D$ID==uID[i],]
-    for (t in 1:Nt) {
+    for (t in 1:length(uDay)) {
       # if more than one response for a day, average the responses
       if (nrow(y1_2D_i[y1_2D_i$day==uDay[t],]) > 0) {
         y1[i,t,] <- 
@@ -122,7 +122,7 @@ preprocessing <- function() {
   
   for (i in 1:dim(y1)[1]) {
     for (t in 2:length(uDay)) {
-      if (y1[i,t-1,O1+1] == 1) {y1[i,t:Nt,O1+1] <- 1; break} } }
+      if (y1[i,t-1,O1+1] == 1) {y1[i,t:length(uDay),O1+1] <- 1; break} } }
   
   # plot persons' drop out occurrence
   # c <- brewer.pal(8, 'Dark2')

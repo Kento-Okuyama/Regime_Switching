@@ -17,13 +17,13 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
   # latent variables
   IQ =~ abiMath + TIMMS + totIQ'
 
-  y2_df <- as.data.frame(y2)
+  y2_df <- as.data.frame(y2[,2:4])
   colnames(y2_df) <- c('abiMath', 'TIMMS', 'totIQ')
   fit_cfa <- cfa(model_cfa, data=y2_df)
   eta2_score <- lavPredict(fit_cfa, method='Bartlett')
   eta2 <- as.array(eta2_score[,1])
-  
-  y1 <- torch_tensor(y1)
+
+  y1 <- torch_tensor(y1[,,1:O1])
   eta2 <- torch_tensor(eta2)
   
   sumLik_best <- 0
@@ -56,8 +56,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
     Qd <- torch_tensor(rep(.3, L1)) # fixed
     Rd <- torch_tensor(rep(.5, O1)) # fixed
     
-    # with_detect_anomaly ({
-    try (silent=FALSE, {
+    with_detect_anomaly ({
+    # try (silent=FALSE, {
       while (count <=3 && iter <= maxIter) {
         # cat('   optim step ', iter, '\n')
         
@@ -67,14 +67,15 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         B22d$requires_grad_()
         B31$requires_grad_()
         B32$requires_grad_()
-        Lmdd$requires_grad_()
+        #Lmdd$requires_grad_()
         Qd$requires_grad_()
         Rd$requires_grad_()
         gamma1$requires_grad_()
         gamma2$requires_grad_()
         
         theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-                      Lmdd=Lmdd, Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
+                      #Lmdd=Lmdd, 
+                      Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
         q <- length(torch_cat(theta))
         
         jEta <- torch_full(c(N,Nt+1,2,2,L1), 0)
@@ -108,8 +109,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         B22 <- B22d$diag()
         LmdT <- Lmd$transpose(1, 2)
         Q <- Qd$diag()
-        R <- Rd$diag()
-        
+        R <- Rd$diag() 
         B1 <- torch_cat(c(B11, B12))$reshape(c(2, L1))
         B2 <- torch_cat(c(B21, B22))$reshape(c(2, L1, L1))
         B3 <- torch_cat(c(B31, B32))$reshape(c(2, L1))
@@ -123,8 +123,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
           jEta[,t,,,] <- B1$expand(c(N, -1, -1))$unsqueeze(-2) + mEta[,t,,]$clone()$unsqueeze(2)$matmul(B2) + eta2$unsqueeze(-1)$unsqueeze(-1)$unsqueeze(-1) * B3$expand(c(N, -1, -1))$unsqueeze(-2)
           jP[,t,,,,] <- mP[,t,,,]$unsqueeze(2)$matmul(B2[2,,]**2) + Q$expand(c(N, 2, 2, -1, -1))
           jV[,t,,,] <- y1[,t,]$unsqueeze(-2)$unsqueeze(-2) - jEta[,t,,,]$clone()$matmul(LmdT) # possible missingness
-          jF[,t,,,,] <- Lmd$matmul(jP[,t,,,,]$matmul(LmdT)) + R
-          KG[,t,,,,] <- jP[,t,,,,]$matmul(LmdT)$matmul(jF[,t,,,,]$clone()$cholesky_inverse())
+          jF[,t,,,,] <- Lmd$matmul(jP[,t,,,,]$clone()$matmul(LmdT)) + R
+          KG[,t,,,,] <- jP[,t,,,,]$clone()$matmul(LmdT)$matmul(jF[,t,,,,]$clone()$cholesky_inverse())
           jEta2[,t,,,] <- jEta[,t,,,] + KG[,t,,,,]$clone()$matmul(jV[,t,,,]$clone()$unsqueeze(-1))$squeeze()
           I_KGLmd[,t,,,,] <- torch_eye(L1)$expand(c(N,2,2,-1,-1)) - KG[,t,,,,]$clone()$matmul(Lmd)
           jP2[,t,,,,] <- I_KGLmd[,t,,,,]$clone()$matmul(jP[,t,,,,]$clone())$matmul(I_KGLmd[,t,,,,]$clone()$transpose(4, 5)) +
@@ -156,9 +156,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
             mP[i,t+1,,,] <- mP[i,t,,,] 
             jPr2[i,t,,] <- jPr2[i,t-1,,]  
             mPr[i,t+1,] <- mPr[i,t,]
-          } }
-          
-        } 
+          } } 
+        }
 
         eta1_pred[,Nt+1,] <- mPr[,Nt+1,1]$unsqueeze(-1) * mEta[,Nt+1,1,] + mPr[,Nt+1,2]$unsqueeze(-1) * mEta[,Nt+1,2,]
         P_pred[,Nt+1,,] <- mPr[,Nt+1,1]$unsqueeze(-1)$unsqueeze(-1) * mP[,Nt+1,1,,] + mPr[,Nt+1,2]$unsqueeze(-1)$unsqueeze(-1) * mP[,Nt+1,2,,]
@@ -185,7 +184,9 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         mPr[,Nt+2,2] <- jPr[,Nt+1,2,]$sum(2)
         
         loss <- -mLik$nansum()
-        
+        print('loss')
+        print(loss)
+
         if (!is.finite(as.numeric(loss))) {
           # print('   error in calculating the sum likelihood')
           with_no_grad ({
@@ -238,12 +239,15 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
             BIC_best <- -2 * log(sumLik) + q * log(N * Nt)
             
             output_best <- output_new } }
+
+        print('sumLik')
+        print(sumLik)
         
         # cat('   sumLik = ', sumLik, '\n')
         loss$backward()
         
         grad <- list()
-        
+
         with_no_grad ({
           for (var in 1:length(theta)) {
             grad[[var]] <- theta[[var]]$grad
@@ -270,7 +274,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         B22d <- torch_tensor(theta$B22d)
         B31 <- torch_tensor(theta$B31)
         B32 <- torch_tensor(theta$B32)
-        Lmdd <- torch_tensor(theta$Lmdd)
+        # Lmdd <- torch_tensor(theta$Lmdd)
         Lmd[2:3,1] <- Lmdd[1:2]
         Lmd[5,2] <- Lmdd[3]
         Lmd[7,3] <- Lmdd[4]
@@ -284,7 +288,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         gamma2 <- torch_tensor(theta$gamma2)
         
         theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-                      Lmdd=Lmdd, Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
+                      #Lmdd=Lmdd, 
+                      Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
         
         iter <- iter + 1 }
     }) } 
@@ -293,3 +298,4 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
   gc()
   return(filter)
 }
+

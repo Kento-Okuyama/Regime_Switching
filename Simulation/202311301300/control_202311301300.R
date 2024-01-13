@@ -17,12 +17,11 @@ control <- function() {
   nInit <- 30
   maxIter <- 300
   
-  nNT <- 6
+  nNT <- 1
   nSim <- 200
   
   ind <- seed <- 1
-  seed <- 100
-  
+
   # Define a function to process each combination of ind and seed
   process_combination <- function(ind, seed) {
     print(c(ind, seed))
