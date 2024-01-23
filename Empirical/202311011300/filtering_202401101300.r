@@ -18,6 +18,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
   IQ =~ abiMath + TIMMS + totIQ'
 
   y2_df <- as.data.frame(y2[,2:4])
+  
   colnames(y2_df) <- c('abiMath', 'TIMMS', 'totIQ')
   fit_cfa <- cfa(model_cfa, data=y2_df)
   eta2_score <- lavPredict(fit_cfa, method='Bartlett')
@@ -26,7 +27,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
   y1 <- torch_tensor(y1[,,1:O1])
   eta2 <- torch_tensor(eta2)
   
-  sumLik_best <- 0
+  sumLik_best <- -99
   
   for (init in 1:nInit) {
     # cat('Init step ', init, '\n')
@@ -44,13 +45,13 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
     Lmdd <- torch_tensor(runif(O1-L1, .5, 1.5))
     Lmd <- torch_full(c(O1,L1), 0)
     Lmd[1,1] <- Lmd[4,2] <- Lmd[6,3] <- Lmd[8,4] <- Lmd[10,5] <- Lmd[12,6] <- Lmd[15,7] <- 1 
-    Lmd[2:3,1] <- Lmdd[1:2]
-    Lmd[5,2] <- Lmdd[3]
-    Lmd[7,3] <- Lmdd[4]
-    Lmd[9,4] <- Lmdd[5]
-    Lmd[11,5] <- Lmdd[6]
-    Lmd[13:14,6] <- Lmdd[7:8]
-    Lmd[16:17,7] <- Lmdd[9:10]
+    Lmd[2:3,1] <- Lmdd[1:2]$clone()
+    Lmd[5,2] <- Lmdd[3]$clone()
+    Lmd[7,3] <- Lmdd[4]$clone()
+    Lmd[9,4] <- Lmdd[5]$clone()
+    Lmd[11,5] <- Lmdd[6]$clone()
+    Lmd[13:14,6] <- Lmdd[7:8]$clone()
+    Lmd[16:17,7] <- Lmdd[9:10]$clone()
     gamma1 <- torch_tensor(4) # fixed
     gamma2 <- torch_tensor(abs(rnorm(L1, 0, 1)))
     Qd <- torch_tensor(rep(.3, L1)) # fixed
@@ -123,9 +124,9 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
             
             if (as.logical(sum(torch_isnan(y1[i,t,]))) <= 0) {
 
-              jEta[i,t,,,] <- B1$unsqueeze(-2) + mEta[i,t,,]$clone()$unsqueeze(2)$matmul(B2) + eta2[i]$unsqueeze(-1)$unsqueeze(-1)$unsqueeze(-1) * B3$unsqueeze(-2)
-              jP[i,t,,,,] <- mP[i,t,,,]$unsqueeze(2)$matmul(B2[2,,]**2) + Q$expand(c(2, 2, -1, -1))
-              jV[i,t,,,] <- y1[i,t,]$unsqueeze(-2)$unsqueeze(-2) - jEta[i,t,,,]$clone()$matmul(LmdT) # possible missingness
+              jEta[i,t,,,] <- B1$unsqueeze(-2) + mEta[i,t,,]$clone()$unsqueeze(2)$matmul(B2) + eta2[i]$clone()$unsqueeze(-1)$unsqueeze(-1)$unsqueeze(-1) * B3$unsqueeze(-2)
+              jP[i,t,,,,] <- mP[i,t,,,]$clone()$unsqueeze(2)$matmul(B2[2,,]**2) + Q$expand(c(2, 2, -1, -1))
+              jV[i,t,,,] <- y1[i,t,]$clone()$unsqueeze(-2)$unsqueeze(-2) - jEta[i,t,,,]$clone()$matmul(LmdT) # possible missingness
               jF[i,t,,,,] <- Lmd$matmul(jP[i,t,,,,]$clone()$matmul(LmdT)) + R$expand(c(2, 2, -1, -1))
               KG[i,t,,,,] <- jP[i,t,,,,]$clone()$matmul(LmdT)$matmul(jF[i,t,,,,]$clone()$cholesky_inverse())
               jEta2[i,t,,,] <- jEta[i,t,,,] + KG[i,t,,,,]$clone()$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()
@@ -140,7 +141,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
               ###################
               
               eta1_pred[i,t,] <- mPr[i,t,1]$clone()$unsqueeze(-1) * mEta[i,t,1,]$clone() + mPr[i,t,2]$clone()$unsqueeze(-1) * mEta[i,t,2,]$clone()
-              P_pred[i,t,,] <- mPr[i,t,1]$unsqueeze(-1)$unsqueeze(-1) * mP[i,t,1,,] + mPr[i,t,2]$unsqueeze(-1)$unsqueeze(-1) * mP[i,t,2,,]
+              P_pred[i,t,,] <- mPr[i,t,1]$clone()$unsqueeze(-1)$unsqueeze(-1) * mP[i,t,1,,]$clone() + mPr[i,t,2]$clone()$unsqueeze(-1)$unsqueeze(-1) * mP[i,t,2,,]$clone()
               tPr[i,t,1,1] <- (gamma1 + eta1_pred[i,t,]$clone()$matmul(gamma2))$sigmoid()$clip(min=sEpsilon, max=1-sEpsilon)
               tPr[i,t,2,1] <- 1 - tPr[i,t,1,1]
               jPr[i,t,,] <- tPr[i,t,,]$clone() * mPr[i,t,]$clone()$unsqueeze(-1)
@@ -188,9 +189,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         mPr[,Nt+2,1] <- jPr[,Nt+1,1,1]
         mPr[,Nt+2,2] <- jPr[,Nt+1,2,]$sum(2)
         
-        loss <- -mLik[,1:2]$nansum()
-        print('loss')
-        print(loss)
+        loss <- -mLik$nansum()
 
         if (!is.finite(as.numeric(loss))) {
           # print('   error in calculating the sum likelihood')
@@ -279,7 +278,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         B22d <- torch_tensor(theta$B22d)
         B31 <- torch_tensor(theta$B31)
         B32 <- torch_tensor(theta$B32)
-        # Lmdd <- torch_tensor(theta$Lmdd)
+        Lmdd <- torch_tensor(theta$Lmdd)
         Lmd[2:3,1] <- Lmdd[1:2]
         Lmd[5,2] <- Lmdd[3]
         Lmd[7,3] <- Lmdd[4]

@@ -1,3 +1,6 @@
+# install.packages('rstudioapi')
+library(rstudioapi)
+
 control <- function() {
   
   setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Empirical/202311011300')
@@ -9,7 +12,7 @@ control <- function() {
   library_load()
   
   nInit <- 30/30
-  maxIter <- 300/150
+  maxIter <- 300/50
   seed <- 42
   
   # Define a function to process each combination of ind and seed
@@ -24,7 +27,7 @@ control <- function() {
   }
 
   process()
-  restartSession(command="print('finished')")
 }
 
 control()
+readRDS(paste('output/filter__emp_42_N_80_T_51_O1_17_O2_3_L1_7.RDS', sep=''))
