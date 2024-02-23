@@ -42,16 +42,13 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
     B22d <- torch_tensor(runif(L1, .2, .6))
     B31 <- torch_tensor(abs(rnorm(L1, 0, .15)))
     B32 <- torch_tensor(-abs(rnorm(L1, 0, .1)))
-    Lmdd <- torch_tensor(runif(O1-L1, .5, 1.5))
-    Lmd <- torch_full(c(O1,L1), 0)
-    Lmd[1,1] <- Lmd[4,2] <- Lmd[6,3] <- Lmd[8,4] <- Lmd[10,5] <- Lmd[12,6] <- Lmd[15,7] <- 1 
-    Lmd[2:3,1] <- Lmdd[1:2]$clone()
-    Lmd[5,2] <- Lmdd[3]$clone()
-    Lmd[7,3] <- Lmdd[4]$clone()
-    Lmd[9,4] <- Lmdd[5]$clone()
-    Lmd[11,5] <- Lmdd[6]$clone()
-    Lmd[13:14,6] <- Lmdd[7:8]$clone()
-    Lmd[16:17,7] <- Lmdd[9:10]$clone()
+    Lmdd1 <- torch_tensor(runif(1, .5, 1.5))
+    Lmdd2 <- torch_tensor(runif(1, .5, 1.5))
+    Lmdd3 <- torch_tensor(runif(1, .5, 1.5))
+    Lmdd4 <- torch_tensor(runif(1, .5, 1.5))
+    Lmdd5 <- torch_tensor(runif(1, .5, 1.5))
+    Lmdd6 <- torch_tensor(runif(1, .5, 1.5))
+    Lmdd7 <- torch_tensor(runif(1, .5, 1.5))
     gamma1 <- torch_tensor(4) # fixed
     gamma2 <- torch_tensor(abs(rnorm(L1, 0, 1)))
     Qd <- torch_tensor(rep(.3, L1)) # fixed
@@ -68,14 +65,20 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         B22d$requires_grad_()
         B31$requires_grad_()
         B32$requires_grad_()
-        #Lmdd$requires_grad_()
+        Lmdd1$requires_grad_()
+        Lmdd2$requires_grad_()
+        Lmdd3$requires_grad_()
+        Lmdd4$requires_grad_()
+        Lmdd5$requires_grad_()
+        Lmdd6$requires_grad_()
+        Lmdd7$requires_grad_()
         Qd$requires_grad_()
         Rd$requires_grad_()
         gamma1$requires_grad_()
         gamma2$requires_grad_()
         
         theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-                      #Lmdd=Lmdd, 
+                      Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, Lmdd6=Lmdd6, Lmdd7=Lmdd7,
                       Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
         q <- length(torch_cat(theta))
         
@@ -104,8 +107,17 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         mPr[,1,1] <- 1
         mPr[,1,2] <- 0
         tPr[,,1,2] <- 0
-        tPr[,,2,2] <- 1
-        
+        tPr[,,2,2] <- 1       
+
+        Lmd <- torch_full(c(O1,L1), 0)
+        Lmd[1,1] <- Lmd[4,2] <- Lmd[6,3] <- Lmd[8,4] <- Lmd[10,5] <- Lmd[12,6] <- Lmd[15,7] <- 1 
+        Lmd[2:3,1] <- Lmdd1
+        Lmd[5,2] <- Lmdd2
+        Lmd[7,3] <- Lmdd3
+        Lmd[9,4] <- Lmdd4
+        Lmd[11,5] <- Lmdd5
+        Lmd[13:14,6] <- Lmdd6
+        Lmd[16:17,7] <- Lmdd7
         B21 <- B21d$diag()
         B22 <- B22d$diag()
         LmdT <- Lmd$transpose(1, 2)
@@ -278,21 +290,27 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, nInit, maxIter) {
         B22d <- torch_tensor(theta$B22d)
         B31 <- torch_tensor(theta$B31)
         B32 <- torch_tensor(theta$B32)
-        # Lmdd <- torch_tensor(theta$Lmdd)
-        Lmd[2:3,1] <- Lmdd[1:2]
-        Lmd[5,2] <- Lmdd[3]
-        Lmd[7,3] <- Lmdd[4]
-        Lmd[9,4] <- Lmdd[5]
-        Lmd[11,5] <- Lmdd[6]
-        Lmd[13:14,6] <- Lmdd[7:8]
-        Lmd[16:17,7] <- Lmdd[9:10]
+        Lmdd1 <- torch_tensor(theta$Lmdd1)
+        Lmdd2 <- torch_tensor(theta$Lmdd2)
+        Lmdd3 <- torch_tensor(theta$Lmdd3)
+        Lmdd4 <- torch_tensor(theta$Lmdd4)
+        Lmdd5 <- torch_tensor(theta$Lmdd5)
+        Lmdd6 <- torch_tensor(theta$Lmdd6)
+        Lmdd7 <- torch_tensor(theta$Lmdd7)
+        Lmd[2:3,1] <- Lmdd1
+        Lmd[5,2] <- Lmdd2
+        Lmd[7,3] <- Lmdd3
+        Lmd[9,4] <- Lmdd4
+        Lmd[11,5] <- Lmdd5
+        Lmd[13:14,6] <- Lmdd6
+        Lmd[16:17,7] <- Lmdd7
         Qd <- torch_tensor(theta$Qd); Qd$clip_(min=lEpsilon)
         Rd <- torch_tensor(theta$Rd); Rd$clip_(min=lEpsilon)
         gamma1 <- torch_tensor(theta$gamma1)
         gamma2 <- torch_tensor(theta$gamma2)
         
         theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-                      #Lmdd=Lmdd, 
+                      Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, Lmdd6=Lmdd6, Lmdd7=Lmdd7,
                       Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
         
         iter <- iter + 1 }
