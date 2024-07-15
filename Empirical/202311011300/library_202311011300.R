@@ -11,7 +11,7 @@ library_load <- function() {
   # Loop through the list of packages and install them if not installed
   for (package in packages_to_install) {
     if (!is_package_installed(package)) {
-      install.packages(package, dependencies = TRUE) } }
+      install.packages(package, dependencies=TRUE) } }
   
   library(reshape)
   library(ggplot2)
