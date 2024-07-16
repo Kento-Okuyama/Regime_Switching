@@ -49,8 +49,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
   Lmdd5 <- torch_tensor(runif(1, .5, 1.5))
   Lmdd6 <- torch_tensor(runif(1, .5, 1.5))
   Lmdd7 <- torch_tensor(runif(1, .5, 1.5))
-  gamma1 <- torch_tensor(3.5) # fixed
-  gamma2 <- torch_tensor(abs(rnorm(L1, 0, 1)))
+  gamma1 <- torch_tensor(3) # fixed
+  gamma2 <- torch_tensor(abs(rnorm(L1, 0, 0.1)))
   Qd <- torch_tensor(rep(.3, L1)) # fixed
   Rd <- torch_tensor(rep(.5, O1)) # fixed
   

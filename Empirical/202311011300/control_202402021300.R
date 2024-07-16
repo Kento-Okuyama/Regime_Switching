@@ -32,6 +32,5 @@ control <- function() {
   process()
 } 
 
-# df <- readRDS('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202311011300/output/df__emp_42_N_80_T_51_O1_17_O2_3_L1_7.RDS')
 control()
 restartSession()
