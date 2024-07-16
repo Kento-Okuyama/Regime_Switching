@@ -1,6 +1,4 @@
 preprocessing <- function() {
-  setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/WS23/Regime-Switching')
-  
   # import data
   data <- read.table('sam_1718_t_C.csv', header=TRUE, sep=';', dec=',', na='-99')
   colnames(data)[c(1,2,92)] <- c('ID', 'day', 'dropout')
@@ -175,7 +173,7 @@ preprocessing <- function() {
   # save data as a list
   df <- list(y1=y1, y2=y2, O1=O1, O2=O2, L1=7, N=N, Nt=Nt)
   
-  setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Empirical/202311011300')
+  setwd('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202311011300')
   
   return(df)
 }
