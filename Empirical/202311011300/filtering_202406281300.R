@@ -36,12 +36,12 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
   m <- v <- m_hat <- v_hat <- list()
   
   # initialize parameters
-  B11 <- torch_tensor(abs(rnorm(L1, 0, .3)))
-  B12 <- torch_tensor(-abs(rnorm(L1, 0, .2)))
-  B21d <- torch_tensor(runif(L1, .6, 1))
-  B22d <- torch_tensor(runif(L1, .2, .6))
-  B31 <- torch_tensor(abs(rnorm(L1, 0, .15)))
-  B32 <- torch_tensor(-abs(rnorm(L1, 0, .1)))
+  B11 <- torch_tensor(rnorm(L1, 0, 1))
+  B12 <- B11 + torch_tensor(abs(rnorm(L1, 0, 1)))
+  B21d <- torch_tensor(rnorm(L1, 0, 1))
+  B22d <- B21d + torch_tensor(runif(L1, 0, 1))
+  B31 <- torch_tensor(rnorm(L1, 0, 1))
+  B32 <- B31 + torch_tensor(rnorm(L1, 0, .1))
   Lmdd1 <- torch_tensor(runif(1, .5, 1.5))
   Lmdd2 <- torch_tensor(runif(1, .5, 1.5))
   Lmdd3 <- torch_tensor(runif(1, .5, 1.5))
