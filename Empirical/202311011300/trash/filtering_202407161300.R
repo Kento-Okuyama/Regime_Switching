@@ -1,6 +1,7 @@
 filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
   set.seed(seed + init)
   
+  # list2env(as.list(df), envir=.GlobalEnv)
   lEpsilon <- 1e-3
   ceil <- 1e15
   sEpsilon <- 1e-15
@@ -17,7 +18,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
   # latent variables
   IQ =~ abiMath + TIMMS + totIQ'
   
-  y2_df <- as.data.frame(y2[,2:4])
+  y2_df <- as.data.frame(y2)
   
   colnames(y2_df) <- c('abiMath', 'TIMMS', 'totIQ')
   fit_cfa <- cfa(model_cfa, data=y2_df)
@@ -27,7 +28,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
   y1 <- torch_tensor(y1[,,1:O1])
   eta2 <- torch_tensor(eta2)
   
-  sumLik_best <- -99
+  sumLik_best <- -ceil
   output_best <- NULL
   
   # cat('Init step ', init, '\n')
@@ -39,20 +40,15 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
   B11 <- torch_tensor(rnorm(L1, 0, 1))
   B12 <- B11 + torch_tensor(abs(rnorm(L1, 0, 1)))
   B21d <- torch_tensor(rnorm(L1, 0, 1))
-  B22d <- B21d + torch_tensor(runif(L1, 0, 1))
+  B22d <- B21d + torch_tensor(rnorm(L1, 0, 1))
   B31 <- torch_tensor(rnorm(L1, 0, 1))
   B32 <- B31 + torch_tensor(rnorm(L1, 0, .1))
   Lmdd1 <- torch_tensor(runif(1, .5, 1.5))
   Lmdd2 <- torch_tensor(runif(1, .5, 1.5))
-  Lmdd3 <- torch_tensor(runif(1, .5, 1.5))
-  Lmdd4 <- torch_tensor(runif(1, .5, 1.5))
-  Lmdd5 <- torch_tensor(runif(1, .5, 1.5))
-  Lmdd6 <- torch_tensor(runif(1, .5, 1.5))
-  Lmdd7 <- torch_tensor(runif(1, .5, 1.5))
-  gamma1 <- torch_tensor(3) # fixed
-  gamma2 <- torch_tensor(abs(rnorm(L1, 0, 0.1)))
-  Qd <- torch_tensor(rep(.3, L1)) # fixed
-  Rd <- torch_tensor(rep(.5, O1)) # fixed
+  gamma1 <- torch_tensor(3.5) # fixed
+  gamma2 <- torch_tensor(rnorm(L1, 0, 1))
+  Qd <- torch_tensor(rep(1, L1)) # fixed
+  Rd <- torch_tensor(rep(3, O1)) # fixed
   
   # with_detect_anomaly ({
   # try (silent=FALSE, {
@@ -67,18 +63,13 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
     B32$requires_grad_()
     Lmdd1$requires_grad_()
     Lmdd2$requires_grad_()
-    Lmdd3$requires_grad_()
-    Lmdd4$requires_grad_()
-    Lmdd5$requires_grad_()
-    Lmdd6$requires_grad_()
-    Lmdd7$requires_grad_()
     Qd$requires_grad_()
     Rd$requires_grad_()
     gamma1$requires_grad_()
     gamma2$requires_grad_()
     
     theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-                  Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, Lmdd6=Lmdd6, Lmdd7=Lmdd7,
+                  Lmdd1=Lmdd1, Lmdd2=Lmdd2,
                   Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
     q <- length(torch_cat(theta))
     
@@ -110,14 +101,9 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
     tPr[,,2,2] <- 1       
     
     Lmd <- torch_full(c(O1,L1), 0)
-    Lmd[1,1] <- Lmd[4,2] <- Lmd[6,3] <- Lmd[8,4] <- Lmd[10,5] <- Lmd[12,6] <- Lmd[15,7] <- 1 
+    Lmd[1,1] <- Lmd[4,2] <- 1 
     Lmd[2:3,1] <- Lmdd1
-    Lmd[5,2] <- Lmdd2
-    Lmd[7,3] <- Lmdd3
-    Lmd[9,4] <- Lmdd4
-    Lmd[11,5] <- Lmdd5
-    Lmd[13:14,6] <- Lmdd6
-    Lmd[16:17,7] <- Lmdd7
+    Lmd[5:6,2] <- Lmdd2
     B21 <- B21d$diag()
     B22 <- B22d$diag()
     LmdT <- Lmd$transpose(1, 2)
@@ -145,8 +131,12 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
           I_KGLmd[i,t,,,,] <- torch_eye(L1)$expand(c(2,2,-1,-1)) - KG[i,t,,,,]$clone()$matmul(Lmd)
           jP2[i,t,,,,] <- I_KGLmd[i,t,,,,]$clone()$matmul(jP[i,t,,,,]$clone())$matmul(I_KGLmd[i,t,,,,]$clone()$transpose(3, 4)) +
             KG[i,t,,,,]$clone()$matmul(R)$matmul(KG[i,t,,,,]$clone()$transpose(3, 4))
-          jLik[i,t,,] <- sEpsilon + const * jF[i,t,,,,]$clone()$det()$clip(min=sEpsilon, max=ceil)**(-1) *
-            (-.5 * jF[i,t,,,,]$clone()$cholesky_inverse()$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$unsqueeze(-2)$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$squeeze())$exp() # possible missingness
+          
+          # log_det_jF <- jF[i,t,,,,]$clone()$det()$clip(min=sEpsilon, max=ceil)$log()
+          
+          log_det_jF <- jF[i,t,,,,]$clone()$det()$clip(min=sEpsilon, max=ceil)$log()
+          quadratic_term <- -.5 * jF[i,t,,,,]$clone()$cholesky_inverse()$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$unsqueeze(-2)$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$squeeze()
+          jLik[i,t,,] <- - log_det_jF$clone() + quadratic_term$clone()
           
           ###################
           # Hamilton filter #
@@ -212,13 +202,13 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
     if (iter == 1) {
       # theta_list <- data.frame(init=init, iter=iter, param=1:length(torch_cat(theta)), value=as.numeric(torch_cat(theta)))
       # theta_list_arranged <- theta_list %>%
-        # group_by(init, iter) %>%
-        # mutate(param = param) %>%
-        # pivot_wider(id_cols = c(init, iter), names_from = param, values_from = value)
+      # group_by(init, iter) %>%
+      # mutate(param = param) %>%
+      # pivot_wider(id_cols = c(init, iter), names_from = param, values_from = value)
       
       sumLik <- sumLik_init <- -as.numeric(loss)
       # output_list <- 
-      output_new <- data.table(init=init, iter=iter, sumLik=sumLik)
+      # output_new <- data.table(init=init, iter=iter, sumLik=sumLik)
       
     } else {
       
@@ -227,10 +217,10 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
       #   group_by(init, iter) %>%
       #   mutate(param = param) %>%
       #   pivot_wider(id_cols = c(init, iter), names_from = param, values_from = value)
-       
+      
       sumLik_prev <- sumLik
       sumLik <- -as.numeric(loss)
-      output_new <- data.frame(init=init, iter=iter, sumLik=sumLik)
+      # output_new <- data.frame(init=init, iter=iter, sumLik=sumLik)
       
       if (iter == 1) {sumLik_init <- sumLik}
       # theta_list_arranged <- rbindlist(list(theta_list_arranged, theta_new_arranged))
@@ -239,6 +229,8 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
       crit <- ifelse(abs(sumLik - sumLik_init) > sEpsilon, (sumLik - sumLik_prev) / (sumLik - sumLik_init), 0)
       count <- ifelse(crit < stopCrit, count + 1, 0) }
     
+    # cat('   count =', count, '\n')
+    # cat('   iter =', iter, '\n')
     if (count >= 3 || iter == maxIter) {
       cat('   stopping criterion is met', '\n')
       with_no_grad ({
@@ -250,10 +242,11 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
       iter_best <- iter
       theta_best <- as.numeric(torch_cat(theta))
       sumLik_best_NT <- sumLik / (N * Nt)
-      AIC_best <- -2 * log(sumLik) + 2 * q
-      BIC_best <- -2 * log(sumLik) + q * log(N * Nt)
+      AIC_best <- -2 * sumLik + 2 * q
+      BIC_best <- -2 * sumLik + q * log(N * Nt)
       
-      output_best <- output_new } 
+      # output_best <- output_new 
+      } 
     
     cat('   sumLik = ', sumLik, '\n')
     loss$backward()
@@ -265,7 +258,7 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
         grad[[var]] <- theta[[var]]$grad
         
         if (max(!is.finite(as.numeric(torch_cat(grad[[var]]))))) {
-          count <- 3; theta[[var]]$requires_grad_(FALSE); break}
+          restartSession(cat('   gradient numerical blowup', '\n')) }
         
         if (iter == 1) {m[[var]] <- v[[var]] <- torch_zeros_like(grad[[var]])}
         
@@ -288,32 +281,22 @@ filtering <- function(seed, N, Nt, O1, O2, L1, y1, y2, init, maxIter) {
     B32 <- torch_tensor(theta$B32)
     Lmdd1 <- torch_tensor(theta$Lmdd1)
     Lmdd2 <- torch_tensor(theta$Lmdd2)
-    Lmdd3 <- torch_tensor(theta$Lmdd3)
-    Lmdd4 <- torch_tensor(theta$Lmdd4)
-    Lmdd5 <- torch_tensor(theta$Lmdd5)
-    Lmdd6 <- torch_tensor(theta$Lmdd6)
-    Lmdd7 <- torch_tensor(theta$Lmdd7)
     Lmd[2:3,1] <- Lmdd1
-    Lmd[5,2] <- Lmdd2
-    Lmd[7,3] <- Lmdd3
-    Lmd[9,4] <- Lmdd4
-    Lmd[11,5] <- Lmdd5
-    Lmd[13:14,6] <- Lmdd6
-    Lmd[16:17,7] <- Lmdd7
+    Lmd[5:6,2] <- Lmdd2
     Qd <- torch_tensor(theta$Qd); Qd$clip_(min=lEpsilon)
     Rd <- torch_tensor(theta$Rd); Rd$clip_(min=lEpsilon)
     gamma1 <- torch_tensor(theta$gamma1)
     gamma2 <- torch_tensor(theta$gamma2)
     
     theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-                  Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, Lmdd6=Lmdd6, Lmdd7=Lmdd7,
+                  Lmdd1=Lmdd1, Lmdd2=Lmdd2,
                   Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
     
     iter <- iter + 1 
     rm(grad)
     gc() } # })
   
-  filter <- list(init_best=init_best, iter_best=iter_best, theta_best=theta_best, sumLik_best_NT=sumLik_best_NT, AIC_best=AIC_best, BIC_best=BIC_best, output_best=output_best)#, theta_list=data.table(theta_list_arranged), output_list=output_list)
+  filter <- list(init_best=init_best, iter_best=iter_best, theta_best=theta_best, sumLik_best_NT=sumLik_best_NT, AIC_best=AIC_best, BIC_best=BIC_best)#, output_best=output_best)#, theta_list=data.table(theta_list_arranged), output_list=output_list)
   gc()
   return(filter)
 }

@@ -1,5 +1,5 @@
 seed <- 42
-init <- 1 
+init <- 3
 set.seed(seed + init)
 
 lEpsilon <- 1e-3
@@ -17,7 +17,7 @@ model_cfa <- '
 # latent variables
 IQ =~ abiMath + TIMMS + totIQ'
 
-y2_df <- as.data.frame(y2[,2:4])
+y2_df <- as.data.frame(y2)
 
 colnames(y2_df) <- c('abiMath', 'TIMMS', 'totIQ')
 fit_cfa <- cfa(model_cfa, data=y2_df)
@@ -35,28 +35,29 @@ iter <- 1
 count <- 0
 m <- v <- m_hat <- v_hat <- list()
 
-# initialize parameters
-B11 <- torch_tensor(abs(rnorm(L1, 0, .3)))
-B12 <- torch_tensor(-abs(rnorm(L1, 0, .2)))
-B21d <- torch_tensor(runif(L1, .6, 1))
-B22d <- torch_tensor(runif(L1, .2, .6))
-B31 <- torch_tensor(abs(rnorm(L1, 0, .15)))
-B32 <- torch_tensor(-abs(rnorm(L1, 0, .1)))
-Lmdd1 <- torch_tensor(runif(1, .5, 1.5))
-Lmdd2 <- torch_tensor(runif(1, .5, 1.5))
-Lmdd3 <- torch_tensor(runif(1, .5, 1.5))
-Lmdd4 <- torch_tensor(runif(1, .5, 1.5))
-Lmdd5 <- torch_tensor(runif(1, .5, 1.5))
-Lmdd6 <- torch_tensor(runif(1, .5, 1.5))
-Lmdd7 <- torch_tensor(runif(1, .5, 1.5))
-gamma1 <- torch_tensor(3) # fixed
-gamma2 <- torch_tensor(abs(rnorm(L1, 0, 0.1)))
-Qd <- torch_tensor(rep(.3, L1)) # fixed
-Rd <- torch_tensor(rep(.5, O1)) # fixed
+# Initialize parameters
+B11_0 <- rnorm(L1, 0, 1)
+B11 <- torch_tensor(B11_0, requires_grad=FALSE)
+B12 <- torch_tensor(B11_0 + abs(rnorm(L1, 0, 1)), requires_grad=FALSE)
+B21d <- torch_tensor(runif(L1, 0.8, 1), requires_grad=FALSE)
+B22d <- torch_tensor(runif(L1, 0.8, 1), requires_grad=FALSE)
+B31_0 <- rnorm(L1, 0, 1)
+B31 <- torch_tensor(B31_0, requires_grad=FALSE)
+B32 <- torch_tensor(B31_0 + rnorm(L1, 0, 1), requires_grad=FALSE)
+Lmdd1 <- torch_tensor(1, requires_grad=FALSE)
+Lmdd2 <- torch_tensor(1, requires_grad=FALSE)
+Lmdd3 <- torch_tensor(1, requires_grad=FALSE)
+Lmdd4 <- torch_tensor(1, requires_grad=FALSE)
+Lmdd5 <- torch_tensor(1, requires_grad=FALSE)
+gamma1 <- torch_tensor(runif(1, 0, 3), requires_grad=FALSE)
+gamma2 <- torch_tensor(abs(rnorm(L1, 0, 1)), requires_grad=FALSE)
+Qd <- torch_tensor(abs(rnorm(L1, 0, 1)), requires_grad=FALSE)
+Rd <- torch_tensor(abs(rnorm(O1, 0, 1)), requires_grad=FALSE)
+mP_DO <- torch_tensor(runif(1, 0, 0.5), requires_grad=FALSE)
 
 theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-              Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, Lmdd6=Lmdd6, Lmdd7=Lmdd7,
-              Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
+              Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, 
+              Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2, mP_DO=mP_DO)
 q <- length(torch_cat(theta))
 
 jEta <- torch_full(c(N,Nt+1,2,2,L1), 0)
@@ -81,20 +82,18 @@ eta1_pred <- torch_full(c(N,Nt+2,L1), NaN)
 P_pred <- torch_full(c(N,Nt+2,L1,L1), NaN)
 
 mP[,1,,,] <- torch_eye(L1)
-mPr[,1,1] <- 1
-mPr[,1,2] <- 0
-tPr[,,1,2] <- 0
-tPr[,,2,2] <- 1       
+mPr[,1,1] <- 1 - mP_DO
+mPr[,1,2] <- mP_DO
+tPr[,,1,2] <- 0.05
+tPr[,,2,2] <- 1 - tPr[,,1,2]   
 
-Lmd <- torch_full(c(O1,L1), 0)
-Lmd[1,1] <- Lmd[4,2] <- Lmd[6,3] <- Lmd[8,4] <- Lmd[10,5] <- Lmd[12,6] <- Lmd[15,7] <- 1 
-Lmd[2:3,1] <- Lmdd1
-Lmd[5,2] <- Lmdd2
-Lmd[7,3] <- Lmdd3
-Lmd[9,4] <- Lmdd4
-Lmd[11,5] <- Lmdd5
-Lmd[13:14,6] <- Lmdd6
-Lmd[16:17,7] <- Lmdd7
+Lmd <- torch_full(c(O1, L1), 0)
+Lmd[1,1] <- Lmd[3,2] <- Lmd[5,3] <- Lmd[7,4] <- 1 
+Lmd[2,1] <- Lmdd1
+Lmd[4,2] <- Lmdd2
+Lmd[6,3] <- Lmdd3
+Lmd[8,4] <- Lmdd4
+Lmd[9,4] <- Lmdd5
 B21 <- B21d$diag()
 B22 <- B22d$diag()
 LmdT <- Lmd$transpose(1, 2)
@@ -122,8 +121,10 @@ for (t in 1:Nt) {
       I_KGLmd[i,t,,,,] <- torch_eye(L1)$expand(c(2,2,-1,-1)) - KG[i,t,,,,]$clone()$matmul(Lmd)
       jP2[i,t,,,,] <- I_KGLmd[i,t,,,,]$clone()$matmul(jP[i,t,,,,]$clone())$matmul(I_KGLmd[i,t,,,,]$clone()$transpose(3, 4)) +
         KG[i,t,,,,]$clone()$matmul(R)$matmul(KG[i,t,,,,]$clone()$transpose(3, 4))
-      jLik[i,t,,] <- sEpsilon + const * jF[i,t,,,,]$clone()$det()$clip(min=sEpsilon, max=ceil)**(-1) *
-        (-.5 * jF[i,t,,,,]$clone()$cholesky_inverse()$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$unsqueeze(-2)$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$squeeze())$exp() # possible missingness
+      
+      log_det_jF <- jF[i,t,,,,]$clone()$det()$clip(min=sEpsilon, max=ceil)$log()
+      quadratic_term <- -.5 * jF[i,t,,,,]$clone()$cholesky_inverse()$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$unsqueeze(-2)$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$squeeze()
+      jLik[i,t,,] <- log(sEpsilon + const) - log_det_jF + quadratic_term
       
       ###################
       # Hamilton filter #
@@ -158,10 +159,12 @@ eta1_pred[,Nt+1,] <- mPr[,Nt+1,1]$unsqueeze(-1) * mEta[,Nt+1,1,] + mPr[,Nt+1,2]$
 P_pred[,Nt+1,,] <- mPr[,Nt+1,1]$unsqueeze(-1)$unsqueeze(-1) * mP[,Nt+1,1,,] + mPr[,Nt+1,2]$unsqueeze(-1)$unsqueeze(-1) * mP[,Nt+1,2,,]
 
 jEta[,Nt+1,1,1,] <- B11 + mEta[,Nt+1,1,]$matmul(B21) + eta2$outer(B31)
+jEta[,Nt+1,1,2,] <- B11 + mEta[,Nt+1,2,]$matmul(B21) + eta2$outer(B31)
 jEta[,Nt+1,2,1,] <- B12 + mEta[,Nt+1,1,]$matmul(B22) + eta2$outer(B32)
 jEta[,Nt+1,2,2,] <- B12 + mEta[,Nt+1,2,]$matmul(B22) + eta2$outer(B32)
 
 jP[,Nt+1,1,1,,] <- B21$matmul(mP[,Nt+1,1,,])$matmul(B21) + Q
+jP[,Nt+1,1,2,,] <- B21$matmul(mP[,Nt+1,2,,])$matmul(B21) + Q
 jP[,Nt+1,2,1,,] <- B22$matmul(mP[,Nt+1,1,,])$matmul(B22) + Q
 jP[,Nt+1,2,2,,] <- B22$matmul(mP[,Nt+1,2,,])$matmul(B22) + Q
 
@@ -170,10 +173,11 @@ tPr[,Nt+1,2,1] <- 1 - tPr[,Nt+1,1,1]
 
 jPr[,Nt+1,1,1] <- tPr[,Nt+1,1,1] * mPr[,Nt+1,1]
 jPr[,Nt+1,2,1] <- tPr[,Nt+1,2,1] * mPr[,Nt+1,1]
-jPr[,Nt+1,2,2] <- mPr[,Nt+1,2]
+jPr[,Nt+1,1,2] <- tPr[,Nt+1,1,2] * mPr[,Nt+1,2]
+jPr[,Nt+1,2,2] <- tPr[,Nt+1,2,2] * mPr[,Nt+1,2]
 
 eta1_pred[,Nt+2,] <- jEta[,Nt+1,1,1,] * jPr[,Nt+1,1,1]$unsqueeze(-1) + jEta[,Nt+1,2,1,] * jPr[,Nt+1,2,1]$unsqueeze(-1) + jEta[,Nt+1,2,2,] * jPr[,Nt+1,2,2]$unsqueeze(-1)
 P_pred[,Nt+2,,] <- jP[,Nt+1,1,1,,] * jPr[,Nt+1,1,1]$unsqueeze(-1)$unsqueeze(-1) + jP[,Nt+1,2,1,,] * jPr[,Nt+1,2,1]$unsqueeze(-1)$unsqueeze(-1) + jP[,Nt+1,2,2,,] * jPr[,Nt+1,2,2]$unsqueeze(-1)$unsqueeze(-1)
 
-mPr[,Nt+2,1] <- jPr[,Nt+1,1,1]
+mPr[,Nt+2,1] <- jPr[,Nt+1,1,]$sum(2)
 mPr[,Nt+2,2] <- jPr[,Nt+1,2,]$sum(2)

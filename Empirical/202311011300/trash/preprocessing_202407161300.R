@@ -4,9 +4,7 @@ preprocessing <- function() {
   colnames(data)[c(1,2,92)] <- c('ID', 'day', 'dropout')
   
   # select intra-individual observed variables
-  cols_w <- c('Av1_state', 'Iv1_state', 'Uv1_state', 'Co1_state', 'Co2_state', 'Leist_verstehen_state', 'Leist_bearbeiten_state', 
-              'Leist_stress_state', 'Leist_ueberfordert_state', 'Angst_abbruch_state', 'Angst_scheitern_state', 'PANP01_state', 
-              'PANP05_state', 'PANP08_state', 'PANN01_state', 'PANN05_state', 'PANN09_state')
+  cols_w <- c('PANP01_state', 'PANP05_state', 'PANP08_state', 'PANN01_state', 'PANN05_state', 'PANN09_state')
   # select inter-individual observed variables
   cols_b <- c('abi_m_note', 'fw_pkt', 'gesamt_iq')
   
@@ -17,9 +15,8 @@ preprocessing <- function() {
   y2 <- unique(data[, c('ID', cols_b)])
   
   # rename within-variables
-  colnames(y1_2D) <- c('ID', 'day', 'Av', 'Iv', 'Uv', 'Co1', 'Co2', 'understand1', 'understand2',
-              'stress1', 'stress2', 'AtF1', 'AtF2', 'PA1', 'PA5', 'PA8',
-              'NA1', 'NA5', 'NA9', 'dropout')
+  colnames(y1_2D) <- c('ID', 'day', 'PA1', 'PA5', 'PA8',
+                       'NA1', 'NA5', 'NA9', 'dropout')
   # rename between-variables
   colnames(y2) <- c('ID', 'abiMath', 'TIMMS', 'totIQ')
   
@@ -39,13 +36,6 @@ preprocessing <- function() {
   
   ######################################################################
   ## within ##
-  # Av: attainment value
-  # Iv: intrinsic value
-  # Uv: utility value
-  # Co1, Co2: cost
-  # understand1, understand2: understanding
-  # stress1, stress2: stress
-  # AtF1, AtF2: afraid to fail
   # PA1, PA5, PA8: positive affect scale (careful, active, excited)
   # NA1, NA5, NA9: negative affect scale (nervous, afraid, distressed)
   ## between ##
@@ -170,8 +160,19 @@ preprocessing <- function() {
   y2[y2$TIMMS==13,][y2[y2$TIMMS==13,]$totIQ==28,]
   y2[which(is.na(y2$abiMath)),]$abiMath <- mean(y2[y2$TIMMS==13,][y2[y2$TIMMS==13,]$totIQ==28,]$abiMath, na.rm=TRUE)
   
+  DO <- y1[,,O1+1]
+  
+  # standardize
+  y1_mean <- apply(y1[,1,1:O1], 2, mean)
+  y1_sd <- apply(y1[,1,1:O1], 2, sd)
+  y1_std <- array(NA, dim=dim(y1[,,1:O1]))
+  for (var in 1:O1) {
+    y1_std[,,var] <- (y1[,,var] - y1_mean[var]) / y1_sd[var]
+  }
+  y2_std <- apply(y2[,2:4], 2, scale)
+  
   # save data as a list
-  df <- list(y1=y1, y2=y2, O1=O1, O2=O2, L1=7, N=N, Nt=Nt)
+  df <- list(y1=y1_std, y2=y2_std, O1=O1, O2=O2, L1=2, N=N, Nt=Nt, DO=DO)
   
   setwd('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202311011300')
   

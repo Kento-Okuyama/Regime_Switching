@@ -1,20 +1,21 @@
 # install.packages('rstudioapi')
+rm(list=ls())
 library(rstudioapi)
 
 control <- function() {
   setwd('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202311011300')
   
-  source('library_202311011300.R')
-  source('preprocessing_202311011300.R')
-  source('filtering_202406281300.R')
+  source('library_202407291300.R')
+  source('preprocessing_202407291300.R')
+  source('filtering_202407291300.R')
   
   library_load()
   
   # nInit <- 1
-  init <- 4
+  init <- 1
   maxIter <- 300
   seed <- 42
-     
+  
   # Define a function to process each combination of ind and seed
   process <- function() {
     df <- preprocessing()
@@ -32,5 +33,6 @@ control <- function() {
   process()
 } 
 
+# df <- readRDS('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202311011300/output/df__emp_42_N_80_T_51_O1_17_O2_3_L1_7.RDS')
 control()
 restartSession()

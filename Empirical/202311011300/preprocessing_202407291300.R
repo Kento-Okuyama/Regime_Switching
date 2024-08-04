@@ -3,10 +3,8 @@ preprocessing <- function() {
   data <- read.table('sam_1718_t_C.csv', header=TRUE, sep=';', dec=',', na='-99')
   colnames(data)[c(1,2,92)] <- c('ID', 'day', 'dropout')
   
-  # select intra-individual observed variables
-  cols_w <- c('Av1_state', 'Iv1_state', 'Uv1_state', 'Co1_state', 'Co2_state', 'Leist_verstehen_state', 'Leist_bearbeiten_state', 
-              'Leist_stress_state', 'Leist_ueberfordert_state', 'Angst_abbruch_state', 'Angst_scheitern_state', 'PANP01_state', 
-              'PANP05_state', 'PANP08_state', 'PANN01_state', 'PANN05_state', 'PANN09_state')
+  # select intra-individual observed variables  
+  cols_w <- c('Co1_state', 'Co2_state', 'Leist_verstehen_state', 'Leist_bearbeiten_state', 'Angst_abbruch_state', 'Angst_scheitern_state', 'PANN01_state', 'PANN05_state', 'PANN09_state')
   # select inter-individual observed variables
   cols_b <- c('abi_m_note', 'fw_pkt', 'gesamt_iq')
   
@@ -17,11 +15,13 @@ preprocessing <- function() {
   y2 <- unique(data[, c('ID', cols_b)])
   
   # rename within-variables
-  colnames(y1_2D) <- c('ID', 'day', 'Av', 'Iv', 'Uv', 'Co1', 'Co2', 'understand1', 'understand2',
-              'stress1', 'stress2', 'AtF1', 'AtF2', 'PA1', 'PA5', 'PA8',
-              'NA1', 'NA5', 'NA9', 'dropout')
+  colnames(y1_2D) <- c('ID', 'day', 'Co1', 'Co2', 'understand1', 'understand2', 'AtF1', 'AtF2', 'NA1', 'NA5', 'NA9', 'dropout')
   # rename between-variables
   colnames(y2) <- c('ID', 'abiMath', 'TIMMS', 'totIQ')
+  
+  # reverse scales (these are positive items; others are negative)
+  y1_2D$understand1 <- -y1_2D$understand1
+  y1_2D$understand2 <- -y1_2D$understand2
   
   # unique ID
   uID <- unique(y2$ID)
@@ -39,14 +39,9 @@ preprocessing <- function() {
   
   ######################################################################
   ## within ##
-  # Av: attainment value
-  # Iv: intrinsic value
-  # Uv: utility value
   # Co1, Co2: cost
   # understand1, understand2: understanding
-  # stress1, stress2: stress
   # AtF1, AtF2: afraid to fail
-  # PA1, PA5, PA8: positive affect scale (careful, active, excited)
   # NA1, NA5, NA9: negative affect scale (nervous, afraid, distressed)
   ## between ##
   # abiMath: math abinote between 1 and 6 (the smaller the better)
@@ -182,7 +177,7 @@ preprocessing <- function() {
   y2_std <- apply(y2[,2:4], 2, scale)
   
   # save data as a list
-  df <- list(y1=y1_std, y2=y2_std, O1=O1, O2=O2, L1=7, N=N, Nt=Nt, DO=DO)
+  df <- list(y1=y1_std, y2=y2_std, O1=O1, O2=O2, L1=4, N=N, Nt=Nt, DO=DO)
   
   setwd('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202311011300')
   
