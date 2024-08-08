@@ -44,7 +44,6 @@ theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
 lEpsilon <- 1e-3
 ceil <- 1e15
 sEpsilon <- 1e-15
-lr <- 1e-3
 epsilon <- 1e-8
 betas <- c(.9, .999)
 const <- (2*pi)**(-O1/2)
