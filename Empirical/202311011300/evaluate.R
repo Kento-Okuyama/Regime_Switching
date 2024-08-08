@@ -3,16 +3,16 @@ init <- 1
 set.seed(seed + init)
 
 # Set working directory
-setwd('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Empirical/202311011300')
+setwd('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202408051300')
 
 # Read the filtered data
 filtered <- readRDS(paste0('output/filter__emp_42_N_80_T_51_O1_9_O2_3_L1_4_init_', init, '.RDS', sep=''))
 
 # Call the preprocessing function and load the resulting variables into the global environment
-source('library_202407291300.R')
-source('preprocessing_202407291300.R')
+source('library_202408051300.R')
+source('preprocessing_202408051300.R')
 library_load()
-df <- readRDS('C:/Users/kento/OneDrive - UT Cloud/Tuebingen/Research/Methods Center/Regime_Switching/Empirical/202311011300/output/df__emp_42_N_80_T_51_O1_9_O2_3_L1_4.RDS')
+df <- readRDS('C:/Users/Methodenzentrum/Desktop/Kento/Empirical/202408051300/output/df__emp_42_N_80_T_51_O1_9_O2_3_L1_4.RDS')
 list2env(as.list(df), envir=.GlobalEnv)
 
 # Extract the best theta parameters from the filtered data
@@ -25,23 +25,20 @@ B21d <- theta[(2*L1+1):(3*L1)]
 B22d <- theta[(3*L1+1):(4*L1)]
 B31 <- theta[(4*L1+1):(5*L1)]
 B32 <- theta[(5*L1+1):(6*L1)]
-Lmdd1 <- theta[(6*L1+1)]
-Lmdd2 <- theta[(6*L1+2)]
-Lmdd3 <- theta[(6*L1+3)]
-Lmdd4 <- theta[(6*L1+4)]
-Lmdd5 <- theta[(6*L1+5)]
-Lmdd6 <- theta[(6*L1+6)]
-Lmdd7 <- theta[(7*L1)]
-gamma1 <- theta[(7*L1+1)]
-gamma2 <- theta[(7*L1+1+1):(7*L1+1+L1)]
-Qd <- theta[(7*L1+1+L1+1):(7*L1+1+2*L1)]
-Rd <- theta[(7*L1+1+2*L1+1):(7*L1+1+2*L1+O1)]
-
+Lmdd1 <- theta[6*L1+1]
+Lmdd2 <- theta[6*L1+2]
+Lmdd3 <- theta[6*L1+3]
+Lmdd4 <- theta[6*L1+4]
+Lmdd5 <- theta[6*L1+5]
+gamma1 <- theta[6*(L1+1)]
+gamma2 <- theta[(6*(L1+1)+1):(6*(L1+1)+L1)]
+Qd <- theta[(6*(L1+1)+L1+1):(6*(L1+1)+2*L1)]
+Rd <- theta[(6*(L1+1)+2*L1+1):(6*(L1+1)+2*L1+O1)]
+mP_DO <-theta[6*(L1+1)+2*L1+O1+1]
+  
 theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
-              Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5, Lmdd6=Lmdd6, Lmdd7=Lmdd7,
-              Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2)
-
-
+              Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5,
+              Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2, mP_DO=mP_DO)
 
 lEpsilon <- 1e-3
 ceil <- 1e15
@@ -156,7 +153,7 @@ for (t in 1:Nt) {
       jP2[i,t,,,,] <- I_KGLmd[i,t,,,,]$clone()$matmul(jP[i,t,,,,]$clone())$matmul(I_KGLmd[i,t,,,,]$clone()$transpose(3, 4)) +
         KG[i,t,,,,]$clone()$matmul(R)$matmul(KG[i,t,,,,]$clone()$transpose(3, 4))
       
-      log_det_jF <- jF[i,t,,,,]$clone()$det()$clip(min=sEpsilon, max=ceil)$log()
+      log_det_jF <- jF[i,t,,,,]$clone()$det()$clip(min=-ceil, max=ceil)$log()
       quadratic_term <- -.5 * jF[i,t,,,,]$clone()$cholesky_inverse()$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$unsqueeze(-2)$matmul(jV[i,t,,,]$clone()$unsqueeze(-1))$squeeze()$squeeze()
       jLik[i,t,,] <- log(sEpsilon + const) - log_det_jF + quadratic_term
       
@@ -238,7 +235,7 @@ ggplot(df_long, aes(x = Value, fill = as.factor(Time))) +
        x = "Value",
        y = "Density") +
   facet_wrap(~ Time, scales = "fixed") +  # Ensure all plots have the same scale
-  coord_cartesian(xlim = c(min(data), 1)) +       # Set the x-axis limits from 0 to 1
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 3)) +       # Set the x-axis limits from 0 to 1
   scale_x_continuous(breaks = seq(0, 1, by = 0.2)) +  # Set x-axis ticks at 0.2 intervals
   theme_minimal() +
   theme(legend.position = "none")  # Hide legend for clarity
