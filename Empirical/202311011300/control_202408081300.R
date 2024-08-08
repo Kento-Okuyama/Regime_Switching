@@ -28,7 +28,7 @@ control <- function(init) {
   process()
 } 
 
-for (init in 3:3) {
+for (init in 1:30) {
   control(init)
 }
 
