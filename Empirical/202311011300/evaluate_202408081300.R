@@ -34,8 +34,9 @@ gamma1 <- theta[6*(L1+1)]
 gamma2 <- theta[(6*(L1+1)+1):(6*(L1+1)+L1)]
 Qd <- theta[(6*(L1+1)+L1+1):(6*(L1+1)+2*L1)]
 Rd <- theta[(6*(L1+1)+2*L1+1):(6*(L1+1)+2*L1+O1)]
-mP_DO <-theta[6*(L1+1)+2*L1+O1+1]
-  
+mP_DO <- theta[6*(L1+1)+2*L1+O1+1]
+tP_SB <- theta[6*(L1+1)+2*L1+O1+2]
+
 theta <- list(B11=B11, B12=B12, B21d=B21d, B22d=B22d, B31=B31, B32=B32,
               Lmdd1=Lmdd1, Lmdd2=Lmdd2, Lmdd3=Lmdd3, Lmdd4=Lmdd4, Lmdd5=Lmdd5,
               Qd=Qd, Rd=Rd, gamma1=gamma1, gamma2=gamma2, mP_DO=mP_DO, tP_SB=tP_SB)
